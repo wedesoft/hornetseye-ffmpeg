@@ -13,26 +13,22 @@
 
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
-#include "avinput.hh"
+#ifndef FRAME_HH
+#define FRAME_HH
 
-#ifdef WIN32
-#define DLLEXPORT __declspec(dllexport)
-#define DLLLOCAL
-#else
-#define DLLEXPORT __attribute__ ((visibility("default")))
-#define DLLLOCAL __attribute__ ((visibility("hidden")))
+#include <boost/smart_ptr.hpp>
+#include <ruby.h>
+
+class Frame
+{
+public:
+  Frame( const char *typecode, int width, int height, char *data );
+  virtual ~Frame(void) {}
+  VALUE rubyObject(void) { return m_frame; }
+protected:
+  VALUE m_frame;
+};
+
+typedef boost::shared_ptr< Frame > FramePtr;
+
 #endif
-
-extern "C" DLLEXPORT void Init_hornetseye_ffmpeg(void);
-
-extern "C" {
-
-  void Init_hornetseye_ffmpeg(void)
-  {
-    rb_require( "hornetseye_frame" );
-    VALUE rbHornetseye = rb_define_module( "Hornetseye" );
-    AVInput::registerRubyClass( rbHornetseye );
-    rb_require( "hornetseye_ffmpeg_ext.rb" );
-  }
-
-}

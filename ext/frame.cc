@@ -13,26 +13,20 @@
 
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
-#include "avinput.hh"
+#include <iostream>
+#include "frame.hh"
 
-#ifdef WIN32
-#define DLLEXPORT __declspec(dllexport)
-#define DLLLOCAL
-#else
-#define DLLEXPORT __attribute__ ((visibility("default")))
-#define DLLLOCAL __attribute__ ((visibility("hidden")))
-#endif
+using namespace std;
 
-extern "C" DLLEXPORT void Init_hornetseye_ffmpeg(void);
-
-extern "C" {
-
-  void Init_hornetseye_ffmpeg(void)
-  {
-    rb_require( "hornetseye_frame" );
-    VALUE rbHornetseye = rb_define_module( "Hornetseye" );
-    AVInput::registerRubyClass( rbHornetseye );
-    rb_require( "hornetseye_ffmpeg_ext.rb" );
-  }
-
+Frame::Frame( const char *typecode, int width, int height, char *data ):
+  m_frame( Qnil )
+{
+  VALUE mModule = rb_define_module( "Hornetseye" );
+  VALUE cMalloc = rb_define_class_under( mModule, "Malloc", rb_cObject );
+  VALUE cFrame = rb_define_class_under( mModule, "Frame", rb_cObject );
+  VALUE memory = Data_Wrap_Struct( cMalloc, 0, 0, (void *)data );
+  m_frame = rb_funcall( cFrame, rb_intern( "import" ), 4,
+                        rb_const_get( mModule, rb_intern( typecode ) ),
+                        INT2NUM( width ), INT2NUM( height ),
+                        memory );
 }

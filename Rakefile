@@ -44,7 +44,7 @@ desc 'Compile Ruby extension (default)'
 task :all => [ SO_FILE ]
 
 file SO_FILE => OBJ do |t|
-   sh "#{CXX} -shared -o #{t.name} #{OBJ} #{$LIBRUBYARG}"
+   sh "#{CXX} -shared -o #{t.name} #{OBJ} -lavformat #{$LIBRUBYARG}"
    sh "#{STRIP} --strip-all #{t.name}"
 end
 
