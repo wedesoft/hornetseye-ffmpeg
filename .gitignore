@@ -1,0 +1,8 @@
+doc
+hornetseye-ffmpeg-*.tar.*
+pkg
+.yardoc
+*~
+*.gem
+*.swp
+
