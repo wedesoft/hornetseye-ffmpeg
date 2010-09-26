@@ -102,7 +102,7 @@ FramePtr AVInput::read(void) throw (Error)
         struct SwsContext *swsContext =
           sws_getContext( m_enc->width, m_enc->height, m_enc->pix_fmt,
                           m_enc->width, m_enc->height, PIX_FMT_YUV420P,
-                          SWS_BILINEAR, 0, 0, 0 );
+                          SWS_FAST_BILINEAR, 0, 0, 0 );
         sws_scale( swsContext, m_frame->data, m_frame->linesize, 0,
                    m_enc->height, frame.data, frame.linesize );
         sws_freeContext( swsContext );
