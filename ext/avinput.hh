@@ -19,6 +19,7 @@
 #include <boost/shared_ptr.hpp>
 #include <ruby.h>
 extern "C" {
+  #include <libswscale/swscale.h>
   #include <libavformat/avformat.h>
 }
 #include "error.hh"

@@ -44,8 +44,8 @@ desc 'Compile Ruby extension (default)'
 task :all => [ SO_FILE ]
 
 file SO_FILE => OBJ do |t|
-   sh "#{CXX} -shared -o #{t.name} #{OBJ} -lavformat #{$LIBRUBYARG}"
-   sh "#{STRIP} --strip-all #{t.name}"
+   sh "#{CXX} -shared -o #{t.name} #{OBJ} -lavformat -lswscale #{$LIBRUBYARG}"
+   # sh "#{STRIP} --strip-all #{t.name}"
 end
 
 task :test => [ SO_FILE ]
@@ -168,8 +168,10 @@ rule '.o' => '.cc' do |t|
    sh "#{CXX} #{$CXXFLAGS} -c -o #{t.name} #{t.source}"
 end
 
-# file 'ext/error.o' => [ 'ext/error.cc', 'ext/error.hh' ]
-# file 'ext/malloc.o' => [ 'ext/malloc.cc', 'ext/malloc.hh', 'ext/error.hh' ]
+file 'ext/avinput.o' => [ 'ext/avinput.cc', 'ext/avinput.hh', 'ext/error.hh',
+                          'ext/frame.hh' ]
+file 'ext/frame.o' => [ 'ext/frame.cc', 'ext/frame.hh' ]
+file 'ext/init.o' => [ 'ext/init.cc', 'ext/avinput.hh' ]
 
 CLEAN.include 'ext/*.o'
 CLOBBER.include SO_FILE, 'doc', '.yardoc'

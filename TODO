@@ -1,1 +1,1 @@
-Opening correct video and then non-existent video crashes the library
+Opening non-existent video crashes the library when terminating

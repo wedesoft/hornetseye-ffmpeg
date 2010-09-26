@@ -34,11 +34,10 @@ public:
   virtual const char* what(void) const throw() {
     temp = m_message.str();
     return temp.c_str();
-    return NULL;
   }
 protected:
   std::ostringstream m_message;
-  static std::string temp;
+  mutable std::string temp;
 };
 
 #define ERRORMACRO( condition, class, params, message ) \

@@ -1,3 +1,19 @@
+/* HornetsEye - Computer Vision with Ruby
+   Copyright (C) 2006, 2007, 2008, 2009, 2010   Jan Wedekind
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+#include <iostream>
 #include "avinput.hh"
 
 using namespace std;
@@ -9,26 +25,26 @@ AVInput::AVInput( const string &mrl ) throw (Error):
   m_frame( NULL )
 {
   try {
-    int err = av_open_input_file( &m_ic, m_mrl.c_str(), NULL, 0, NULL );
-    ERRORMACRO( err >= 0, Error, , "Error opening file \"" << m_mrl << "\": "
+    int err = av_open_input_file( &m_ic, mrl.c_str(), NULL, 0, NULL );
+    ERRORMACRO( err >= 0, Error, , "Error opening file \"" << mrl << "\": "
                 << strerror( -err ) );
     err = av_find_stream_info( m_ic );
     ERRORMACRO( err >= 0, Error, , "Error finding stream info for file \""
-                << m_mrl << "\": " << strerror( -err ) );
+                << mrl << "\": " << strerror( -err ) );
     for ( int i=0; i<m_ic->nb_streams; i++ )
       if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO ) {
         m_idx = i;
         break;
       };
     ERRORMACRO( m_idx >= 0, Error, , "Could not find video stream in file \""
-                << m_mrl << "\"" );
+                << mrl << "\"" );
     m_enc = m_ic->streams[ m_idx ]->codec;
     m_codec = avcodec_find_decoder( m_enc->codec_id );
     ERRORMACRO( m_codec != NULL, Error, , "Could not find decoder for file \""
-                << m_mrl << "\"" );
+                << mrl << "\"" );
     err = avcodec_open( m_enc, m_codec );
     ERRORMACRO( err >= 0, Error, , "Error opening codec for file \""
-                << m_mrl << "\": " << strerror( -err ) );
+                << mrl << "\": " << strerror( -err ) );
     m_frame = avcodec_alloc_frame();
     ERRORMACRO( m_frame, Error, , "Error allocating frame" );
   } catch ( Error &e ) {
@@ -73,20 +89,32 @@ FramePtr AVInput::read(void) throw (Error)
                   "Error decoding frame of video \"" << m_mrl << "\"" );
       if ( frameFinished ) {
         av_free_packet( &packet );
-        AVPicture pict;
+        AVFrame frame;
         m_data = boost::shared_array< char >( new char[ m_enc->width *
                                                         m_enc->height *
                                                         3 / 2 ] );
-        pict.data[0] = (uint8_t *)m_data.get();
-        pict.data[1] = (uint8_t *)m_data.get() +
-                       m_enc->width * m_enc->height * 5 / 4;
-        pict.data[2] = (uint8_t *)m_data.get() + m_enc->width * m_enc->height;
-        pict.linesize[0] = m_enc->width;
-        pict.linesize[1] = m_enc->width / 2;
-        pict.linesize[2] = m_enc->width / 2;
+
+        //avpicture_fill( (AVPicture *)&frame, (uint8_t *)m_data.get(),
+        //                PIX_FMT_YUV420P, m_enc->width, m_enc->height );
+
+        frame.data[0] = (uint8_t *)m_data.get();
+        frame.data[1] = (uint8_t *)m_data.get() +
+                        m_enc->width * m_enc->height * 5 / 4;
+        frame.data[2] = (uint8_t *)m_data.get() + m_enc->width * m_enc->height;
+        frame.linesize[0] = m_enc->width;
+        frame.linesize[1] = m_enc->width / 2;
+        frame.linesize[2] = m_enc->width / 2;
         //img_convert(&pict, PIX_FMT_YUV420P,
         //            (AVPicture *)m_frame, m_enc->pix_fmt,
         //            m_enc->width, m_enc->height); // !!!
+        struct SwsContext *swsContext =
+          sws_getContext( m_enc->width, m_enc->height, m_enc->pix_fmt,
+                          m_enc->width, m_enc->height, PIX_FMT_YUV420P,
+                          SWS_BILINEAR, 0, 0, 0 );
+        cerr << "swsContext is " << swsContext << endl;
+        sws_scale( swsContext, m_frame->data, m_frame->linesize, 0,
+                   m_enc->height, frame.data, frame.linesize );
+        sws_freeContext( swsContext );
         retVal = FramePtr( new Frame( "YV12", m_enc->width, m_enc->height,
                                       m_data.get() ) );
         break;
@@ -133,7 +161,7 @@ VALUE AVInput::wrapRead( VALUE rbSelf )
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     FramePtr frame( (*self)->read() );
     retVal = frame->rubyObject();
-  } catch ( std::exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
