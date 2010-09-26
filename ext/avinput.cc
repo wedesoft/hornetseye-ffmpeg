@@ -13,7 +13,6 @@
 
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
-#include <iostream>
 #include "avinput.hh"
 
 using namespace std;
@@ -93,10 +92,6 @@ FramePtr AVInput::read(void) throw (Error)
         m_data = boost::shared_array< char >( new char[ m_enc->width *
                                                         m_enc->height *
                                                         3 / 2 ] );
-
-        //avpicture_fill( (AVPicture *)&frame, (uint8_t *)m_data.get(),
-        //                PIX_FMT_YUV420P, m_enc->width, m_enc->height );
-
         frame.data[0] = (uint8_t *)m_data.get();
         frame.data[1] = (uint8_t *)m_data.get() +
                         m_enc->width * m_enc->height * 5 / 4;
@@ -104,14 +99,10 @@ FramePtr AVInput::read(void) throw (Error)
         frame.linesize[0] = m_enc->width;
         frame.linesize[1] = m_enc->width / 2;
         frame.linesize[2] = m_enc->width / 2;
-        //img_convert(&pict, PIX_FMT_YUV420P,
-        //            (AVPicture *)m_frame, m_enc->pix_fmt,
-        //            m_enc->width, m_enc->height); // !!!
         struct SwsContext *swsContext =
           sws_getContext( m_enc->width, m_enc->height, m_enc->pix_fmt,
                           m_enc->width, m_enc->height, PIX_FMT_YUV420P,
                           SWS_BILINEAR, 0, 0, 0 );
-        cerr << "swsContext is " << swsContext << endl;
         sws_scale( swsContext, m_frame->data, m_frame->linesize, 0,
                    m_enc->height, frame.data, frame.linesize );
         sws_freeContext( swsContext );
