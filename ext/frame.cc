@@ -24,9 +24,13 @@ Frame::Frame( const char *typecode, int width, int height, char *data ):
   VALUE mModule = rb_define_module( "Hornetseye" );
   VALUE cMalloc = rb_define_class_under( mModule, "Malloc", rb_cObject );
   VALUE cFrame = rb_define_class_under( mModule, "Frame", rb_cObject );
-  VALUE memory = Data_Wrap_Struct( cMalloc, 0, 0, (void *)data );
+  VALUE rbSize = rb_funcall( cFrame, rb_intern( "typesize" ), 3,
+                             rb_const_get( mModule, rb_intern( typecode ) ),
+                             INT2NUM( width ), INT2NUM( height ) );
+  VALUE rbMemory = Data_Wrap_Struct( cMalloc, 0, 0, (void *)data );
+  rb_ivar_set( rbMemory, rb_intern( "@size" ), rbSize );
   m_frame = rb_funcall( cFrame, rb_intern( "import" ), 4,
                         rb_const_get( mModule, rb_intern( typecode ) ),
                         INT2NUM( width ), INT2NUM( height ),
-                        memory );
+                        rbMemory );
 }
