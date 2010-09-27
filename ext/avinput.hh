@@ -32,11 +32,17 @@ public:
   virtual ~AVInput(void);
   void close(void);
   FramePtr read(void) throw (Error);
+  AVRational timeBase(void) throw (Error);
+  void seek( long timestamp ) throw (Error);
+  long tell(void) throw (Error);
   static VALUE cRubyClass;
   static VALUE registerRubyClass( VALUE rbModule );
   static void deleteRubyObject( void *ptr );
   static VALUE wrapNew( VALUE rbClass, VALUE rbMRL );
   static VALUE wrapRead( VALUE rbSelf );
+  static VALUE wrapTimeBase( VALUE rbSelf );
+  static VALUE wrapSeek( VALUE rbSelf, VALUE rbPos );
+  static VALUE wrapTell( VALUE rbSelf );
 protected:
   std::string m_mrl;
   AVFormatContext *m_ic;

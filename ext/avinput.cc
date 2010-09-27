@@ -13,7 +13,14 @@
 
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+#include <iostream>
 #include "avinput.hh"
+
+#if !defined(INT64_C)
+#define INT64_C(c) c ## LL
+#endif
+
+// Also see FFMPEG tutorial at http://dranger.com/ffmpeg/
 
 using namespace std;
 
@@ -87,6 +94,8 @@ FramePtr AVInput::read(void) throw (Error)
       ERRORMACRO( err >= 0, Error, ,
                   "Error decoding frame of video \"" << m_mrl << "\"" );
       if ( frameFinished ) {
+if ( packet.pts != AV_NOPTS_VALUE )
+cerr << ( av_q2d( m_enc->time_base ) * packet.pts ) << endl;
         av_free_packet( &packet );
         AVFrame frame;
         m_data = boost::shared_array< char >( new char[ m_enc->width *
@@ -117,13 +126,40 @@ FramePtr AVInput::read(void) throw (Error)
   return retVal;
 }
 
+AVRational AVInput::timeBase(void) throw (Error)
+{
+  ERRORMACRO( m_enc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_enc->time_base;
+}
+
+void AVInput::seek( long timestamp ) throw (Error)
+{
+  ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  ERRORMACRO( av_seek_frame( m_ic, -1, timestamp, 0 ) >= 0,
+              Error, , "Error seeking in video \"" << m_mrl << "\"" );
+  avcodec_flush_buffers( m_enc );
+}
+
+long AVInput::tell(void) throw (Error)
+{
+  ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_ic->timestamp;
+}
+
 VALUE AVInput::registerRubyClass( VALUE rbModule )
 {
   av_register_all();
   cRubyClass = rb_define_class_under( rbModule, "AVInput", rb_cObject );
   rb_define_singleton_method( cRubyClass, "new",
                               RUBY_METHOD_FUNC( wrapNew ), 1 );
+  rb_define_const( cRubyClass, "AV_TIME_BASE", INT2NUM( AV_TIME_BASE ) );
   rb_define_method( cRubyClass, "read", RUBY_METHOD_FUNC( wrapRead ), 0 );
+  rb_define_method( cRubyClass, "time_base", RUBY_METHOD_FUNC( wrapTimeBase ), 0 );
+  rb_define_method( cRubyClass, "pos=", RUBY_METHOD_FUNC( wrapSeek ), 1 );
+  rb_define_method( cRubyClass, "pos", RUBY_METHOD_FUNC( wrapTell ), 0 );
 }
 
 void AVInput::deleteRubyObject( void *ptr )
@@ -157,3 +193,42 @@ VALUE AVInput::wrapRead( VALUE rbSelf )
   };
   return retVal;
 }
+
+VALUE AVInput::wrapTimeBase( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    AVRational time_base = (*self)->timeBase();
+    retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
+                         INT2NUM( time_base.num ), INT2NUM( time_base.den ) );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapSeek( VALUE rbSelf, VALUE rbPos )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    (*self)->seek( NUM2INT( rbPos ) );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapTell( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    retVal = INT2NUM( (*self)->tell() );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+

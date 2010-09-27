@@ -14,6 +14,45 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-require 'hornetseye_frame'
-require 'hornetseye-ffmpeg/avinput'
+# Namespace of Hornetseye computer vision library
+module Hornetseye
+
+  class AVInput
+
+    class << self
+
+      alias_method :orig_new, :new
+
+      def new( mrl )
+        retval = orig_new mrl
+        retval.instance_eval { @initial = true }
+        retval
+      end
+
+    end
+
+    alias_method :orig_read, :read
+
+    def read
+      @initial = false
+      orig_read
+    end
+
+    alias_method :orig_pos, :pos=
+
+    def pos=( timestamp )
+      if @initial
+        begin
+          read
+        rescue Exception
+        ensure
+          @initial = false
+        end
+      end
+      orig_pos timestamp
+    end
+
+  end
+
+end
 
