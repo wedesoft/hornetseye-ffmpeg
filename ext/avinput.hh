@@ -34,7 +34,7 @@ public:
   FramePtr read(void) throw (Error);
   AVRational timeBase(void) throw (Error);
   void seek( long timestamp ) throw (Error);
-  long tell(void) throw (Error);
+  long long pts(void) throw (Error);
   static VALUE cRubyClass;
   static VALUE registerRubyClass( VALUE rbModule );
   static void deleteRubyObject( void *ptr );
@@ -42,13 +42,14 @@ public:
   static VALUE wrapRead( VALUE rbSelf );
   static VALUE wrapTimeBase( VALUE rbSelf );
   static VALUE wrapSeek( VALUE rbSelf, VALUE rbPos );
-  static VALUE wrapTell( VALUE rbSelf );
+  static VALUE wrapPTS( VALUE rbSelf );
 protected:
   std::string m_mrl;
   AVFormatContext *m_ic;
   AVCodecContext *m_enc;
   AVCodec *m_codec;
   int m_idx;
+  long long m_pts;
   AVFrame *m_frame;
   boost::shared_array< char > m_data;
 };

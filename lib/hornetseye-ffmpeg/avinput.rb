@@ -25,7 +25,7 @@ module Hornetseye
 
       def new( mrl )
         retval = orig_new mrl
-        retval.instance_eval { @initial = true }
+        retval.instance_eval { @frame = nil }
         retval
       end
 
@@ -34,22 +34,21 @@ module Hornetseye
     alias_method :orig_read, :read
 
     def read
-      @initial = false
-      orig_read
+      @frame = orig_read
     end
 
-    alias_method :orig_pos, :pos=
-
     def pos=( timestamp )
-      if @initial
+      unless @frame
         begin
           read
         rescue Exception
-        ensure
-          @initial = false
         end
       end
-      orig_pos timestamp
+      seek timestamp * AV_TIME_BASE
+    end
+
+    def pos
+      pts * time_base
     end
 
   end
