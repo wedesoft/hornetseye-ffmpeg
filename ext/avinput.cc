@@ -212,7 +212,7 @@ VALUE AVInput::wrapSeek( VALUE rbSelf, VALUE rbPos )
   VALUE retVal = Qnil;
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
-    (*self)->seek( NUM2INT( rbPos ) );
+    (*self)->seek( NUM2LL( rbPos ) );
   } catch( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
@@ -224,7 +224,7 @@ VALUE AVInput::wrapPTS( VALUE rbSelf )
   VALUE retVal = Qnil;
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
-    retVal = INT2NUM( (*self)->pts() );
+    retVal = LL2NUM( (*self)->pts() );
   } catch( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
