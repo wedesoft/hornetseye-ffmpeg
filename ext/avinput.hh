@@ -32,6 +32,8 @@ public:
   virtual ~AVInput(void);
   void close(void);
   FramePtr read(void) throw (Error);
+  int width(void) const throw (Error);
+  int height(void) const throw (Error);
   AVRational timeBase(void) throw (Error);
   void seek( long timestamp ) throw (Error);
   long long pts(void) throw (Error);
@@ -42,15 +44,18 @@ public:
   static VALUE wrapClose( VALUE rbSelf );
   static VALUE wrapRead( VALUE rbSelf );
   static VALUE wrapTimeBase( VALUE rbSelf );
+  static VALUE wrapWidth( VALUE rbSelf );
+  static VALUE wrapHeight( VALUE rbSelf );
   static VALUE wrapSeek( VALUE rbSelf, VALUE rbPos );
   static VALUE wrapPTS( VALUE rbSelf );
 protected:
   std::string m_mrl;
   AVFormatContext *m_ic;
-  AVCodecContext *m_enc;
+  AVCodecContext *m_dec;
   AVCodec *m_codec;
   int m_idx;
   long long m_pts;
+  struct SwsContext *m_swsContext;
   AVFrame *m_frame;
   boost::shared_array< char > m_data;
 };

@@ -31,6 +31,10 @@ module Hornetseye
 
     end
 
+    def shape
+      [ width, height ]
+    end
+
     alias_method :orig_read, :read
 
     def read

@@ -50,6 +50,7 @@ AVOutput::AVOutput( const string &mrl, int bitrate, int width, int height,
     c->time_base.num = timeBaseNum;
     c->time_base.den = timeBaseDen;
     c->gop_size = 12;
+    c->me_method = 2;
     c->pix_fmt = PIX_FMT_YUV420P;
     if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
       c->flags |= CODEC_FLAG_GLOBAL_HEADER;

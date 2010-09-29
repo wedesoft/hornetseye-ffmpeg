@@ -26,8 +26,8 @@ using namespace std;
 VALUE AVInput::cRubyClass = Qnil;
 
 AVInput::AVInput( const string &mrl ) throw (Error):
-  m_mrl( mrl ), m_ic( NULL ), m_enc( NULL ), m_codec( NULL ), m_idx( -1 ),
-  m_pts( 0 ), m_frame( NULL )
+  m_mrl( mrl ), m_ic( NULL ), m_dec( NULL ), m_codec( NULL ), m_idx( -1 ),
+  m_pts( 0 ), m_swsContext( NULL ), m_frame( NULL )
 {
   try {
     int err = av_open_input_file( &m_ic, mrl.c_str(), NULL, 0, NULL );
@@ -43,13 +43,16 @@ AVInput::AVInput( const string &mrl ) throw (Error):
       };
     ERRORMACRO( m_idx >= 0, Error, , "Could not find video stream in file \""
                 << mrl << "\"" );
-    m_enc = m_ic->streams[ m_idx ]->codec;
-    m_codec = avcodec_find_decoder( m_enc->codec_id );
+    m_dec = m_ic->streams[ m_idx ]->codec;
+    m_codec = avcodec_find_decoder( m_dec->codec_id );
     ERRORMACRO( m_codec != NULL, Error, , "Could not find decoder for file \""
                 << mrl << "\"" );
-    err = avcodec_open( m_enc, m_codec );
+    err = avcodec_open( m_dec, m_codec );
     ERRORMACRO( err >= 0, Error, , "Error opening codec for file \""
                 << mrl << "\": " << strerror( -err ) );
+    m_swsContext = sws_getContext( m_dec->width, m_dec->height, m_dec->pix_fmt,
+                                   m_dec->width, m_dec->height, PIX_FMT_YUV420P,
+                                   SWS_FAST_BILINEAR, 0, 0, 0 );
     m_frame = avcodec_alloc_frame();
     ERRORMACRO( m_frame, Error, , "Error allocating frame" );
   } catch ( Error &e ) {
@@ -69,11 +72,16 @@ void AVInput::close(void)
     av_free( m_frame );
     m_frame = NULL;
   };
+  if ( m_swsContext ) {
+    sws_freeContext( m_swsContext );
+    m_swsContext = NULL;
+  };
   if ( m_codec ) {
-    avcodec_close( m_enc );
+    m_ic->streams[ m_idx ]->discard = AVDISCARD_ALL;
+    avcodec_close( m_dec );
     m_codec = NULL;
   };
-  m_enc = NULL;
+  m_dec = NULL;
   m_idx = -1;
   if ( m_ic ) {
     av_close_input_file( m_ic );
@@ -90,7 +98,7 @@ FramePtr AVInput::read(void) throw (Error)
   while ( av_read_frame( m_ic, &packet ) >= 0 ) {
     if ( packet.stream_index == m_idx ) {
       int frameFinished;
-      int err = avcodec_decode_video( m_enc, m_frame, &frameFinished,
+      int err = avcodec_decode_video( m_dec, m_frame, &frameFinished,
                                       packet.data, packet.size );
       ERRORMACRO( err >= 0, Error, ,
                   "Error decoding frame of video \"" << m_mrl << "\"" );
@@ -99,24 +107,23 @@ FramePtr AVInput::read(void) throw (Error)
         if ( packet.dts != AV_NOPTS_VALUE ) m_pts = packet.dts;
         av_free_packet( &packet );
         AVFrame frame;
-        m_data = boost::shared_array< char >( new char[ m_enc->width *
-                                                        m_enc->height *
+        m_data = boost::shared_array< char >( new char[ m_dec->width *
+                                                        m_dec->height *
                                                         3 / 2 ] );
         frame.data[0] = (uint8_t *)m_data.get();
         frame.data[1] = (uint8_t *)m_data.get() +
-                        m_enc->width * m_enc->height * 5 / 4;
-        frame.data[2] = (uint8_t *)m_data.get() + m_enc->width * m_enc->height;
-        frame.linesize[0] = m_enc->width;
-        frame.linesize[1] = m_enc->width / 2;
-        frame.linesize[2] = m_enc->width / 2;
+                        m_dec->width * m_dec->height * 5 / 4;
+        frame.data[2] = (uint8_t *)m_data.get() + m_dec->width * m_dec->height;
+        frame.linesize[0] = m_dec->width;
+        frame.linesize[1] = m_dec->width / 2;
+        frame.linesize[2] = m_dec->width / 2;
         struct SwsContext *swsContext =
-          sws_getContext( m_enc->width, m_enc->height, m_enc->pix_fmt,
-                          m_enc->width, m_enc->height, PIX_FMT_YUV420P,
+          sws_getContext( m_dec->width, m_dec->height, m_dec->pix_fmt,
+                          m_dec->width, m_dec->height, PIX_FMT_YUV420P,
                           SWS_FAST_BILINEAR, 0, 0, 0 );
-        sws_scale( swsContext, m_frame->data, m_frame->linesize, 0,
-                   m_enc->height, frame.data, frame.linesize );
-        sws_freeContext( swsContext );
-        retVal = FramePtr( new Frame( "YV12", m_enc->width, m_enc->height,
+        sws_scale( m_swsContext, m_frame->data, m_frame->linesize, 0,
+                   m_dec->height, frame.data, frame.linesize );
+        retVal = FramePtr( new Frame( "YV12", m_dec->width, m_dec->height,
                                       m_data.get() ) );
         break;
       };
@@ -125,6 +132,20 @@ FramePtr AVInput::read(void) throw (Error)
   };
   ERRORMACRO( retVal.get(), Error, , "No more frames available" );
   return retVal;
+}
+
+int AVInput::width(void) const throw (Error)
+{
+  ERRORMACRO( m_dec != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_dec->width;
+}
+
+int AVInput::height(void) const throw (Error)
+{
+  ERRORMACRO( m_dec != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_dec->height;
 }
 
 AVRational AVInput::timeBase(void) throw (Error)
@@ -140,7 +161,7 @@ void AVInput::seek( long timestamp ) throw (Error)
               "Did you call \"close\" before?" );
   ERRORMACRO( av_seek_frame( m_ic, -1, timestamp, 0 ) >= 0,
               Error, , "Error seeking in video \"" << m_mrl << "\"" );
-  avcodec_flush_buffers( m_enc );
+  avcodec_flush_buffers( m_dec );
 }
 
 long long AVInput::pts(void) throw (Error)
@@ -159,6 +180,8 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
   rb_define_method( cRubyClass, "read", RUBY_METHOD_FUNC( wrapRead ), 0 );
   rb_define_method( cRubyClass, "time_base", RUBY_METHOD_FUNC( wrapTimeBase ), 0 );
+  rb_define_method( cRubyClass, "width", RUBY_METHOD_FUNC( wrapWidth ), 0 );
+  rb_define_method( cRubyClass, "height", RUBY_METHOD_FUNC( wrapHeight ), 0 );
   rb_define_method( cRubyClass, "seek", RUBY_METHOD_FUNC( wrapSeek ), 1 );
   rb_define_method( cRubyClass, "pts", RUBY_METHOD_FUNC( wrapPTS ), 0 );
 }
@@ -210,6 +233,30 @@ VALUE AVInput::wrapTimeBase( VALUE rbSelf )
     AVRational time_base = (*self)->timeBase();
     retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
                          INT2NUM( time_base.num ), INT2NUM( time_base.den ) );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapWidth( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    retVal = INT2NUM( (*self)->width() );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapHeight( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    retVal = INT2NUM( (*self)->height() );
   } catch( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
