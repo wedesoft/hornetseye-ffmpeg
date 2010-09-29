@@ -106,23 +106,19 @@ FramePtr AVInput::read(void) throw (Error)
       if ( frameFinished ) {
         if ( packet.dts != AV_NOPTS_VALUE ) m_pts = packet.dts;
         av_free_packet( &packet );
-        AVFrame frame;
+        AVFrame picture;
         m_data = boost::shared_array< char >( new char[ m_dec->width *
                                                         m_dec->height *
                                                         3 / 2 ] );
-        frame.data[0] = (uint8_t *)m_data.get();
-        frame.data[1] = (uint8_t *)m_data.get() +
-                        m_dec->width * m_dec->height * 5 / 4;
-        frame.data[2] = (uint8_t *)m_data.get() + m_dec->width * m_dec->height;
-        frame.linesize[0] = m_dec->width;
-        frame.linesize[1] = m_dec->width / 2;
-        frame.linesize[2] = m_dec->width / 2;
-        struct SwsContext *swsContext =
-          sws_getContext( m_dec->width, m_dec->height, m_dec->pix_fmt,
-                          m_dec->width, m_dec->height, PIX_FMT_YUV420P,
-                          SWS_FAST_BILINEAR, 0, 0, 0 );
+        picture.data[0] = (uint8_t *)m_data.get();
+        picture.data[1] = (uint8_t *)m_data.get() +
+                          m_dec->width * m_dec->height * 5 / 4;
+        picture.data[2] = (uint8_t *)m_data.get() + m_dec->width * m_dec->height;
+        picture.linesize[0] = m_dec->width;
+        picture.linesize[1] = m_dec->width / 2;
+        picture.linesize[2] = m_dec->width / 2;
         sws_scale( m_swsContext, m_frame->data, m_frame->linesize, 0,
-                   m_dec->height, frame.data, frame.linesize );
+                   m_dec->height, picture.data, picture.linesize );
         retVal = FramePtr( new Frame( "YV12", m_dec->width, m_dec->height,
                                       m_data.get() ) );
         break;

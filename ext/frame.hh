@@ -23,7 +23,11 @@ class Frame
 {
 public:
   Frame( const char *typecode, int width, int height, char *data );
+  Frame( VALUE rbFrame ): m_frame( rbFrame ) {}
   virtual ~Frame(void) {}
+  int width(void);
+  int height(void);
+  char *data(void);
   VALUE rubyObject(void) { return m_frame; }
 protected:
   VALUE m_frame;

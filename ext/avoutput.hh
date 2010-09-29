@@ -17,12 +17,14 @@
 #define AVOUTPUT_HH
 
 #include <boost/shared_ptr.hpp>
-#include <ruby.h>
 extern "C" {
   #include <libswscale/swscale.h>
   #include <libavformat/avformat.h>
 }
+#undef RSHIFT
+#include <ruby.h>
 #include "error.hh"
+#include "frame.hh"
 
 class AVOutput
 {
@@ -31,12 +33,14 @@ public:
             int width, int height, int timeBaseNum, int timeBaseDen ) throw (Error);
   virtual ~AVOutput(void);
   void close(void);
+  void write( FramePtr frame ) throw (Error);
   static VALUE cRubyClass;
   static VALUE registerRubyClass( VALUE rbModule );
   static void deleteRubyObject( void *ptr );
   static VALUE wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbBitRate, VALUE rbWidth,
-                         VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen );
+                        VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen );
   static VALUE wrapClose( VALUE rbSelf );
+  static VALUE wrapWrite( VALUE rbSelf, VALUE rbFrame );
 protected:
   std::string m_mrl;
   AVFormatContext *m_oc;
@@ -45,6 +49,8 @@ protected:
   char *m_video_buf;
   bool m_file_open;
   bool m_header_written;
+  struct SwsContext *m_swsContext;
+  AVFrame *m_frame;
 };
 
 typedef boost::shared_ptr< AVOutput > AVOutputPtr;

@@ -34,3 +34,22 @@ Frame::Frame( const char *typecode, int width, int height, char *data ):
                         INT2NUM( width ), INT2NUM( height ),
                         rbMemory );
 }
+
+int Frame::width(void)
+{
+  return NUM2INT( rb_funcall( m_frame, rb_intern( "width" ), 0 ) );
+}
+
+int Frame::height(void)
+{
+  return NUM2INT( rb_funcall( m_frame, rb_intern( "height" ), 0 ) );
+}
+
+char *Frame::data(void)
+{
+  VALUE rbMemory = rb_iv_get( m_frame, "@memory" );
+  char *ptr;
+  Data_Get_Struct( rbMemory, char, ptr );
+  return ptr;
+}
+
