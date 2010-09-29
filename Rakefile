@@ -170,6 +170,8 @@ end
 
 file 'ext/avinput.o' => [ 'ext/avinput.cc', 'ext/avinput.hh', 'ext/error.hh',
                           'ext/frame.hh' ]
+file 'ext/avoutput.o' => [ 'ext/avoutput.cc', 'ext/avoutput.hh', 'ext/error.hh',
+                           'ext/frame.hh' ]
 file 'ext/frame.o' => [ 'ext/frame.cc', 'ext/frame.hh' ]
 file 'ext/init.o' => [ 'ext/init.cc', 'ext/avinput.hh' ]
 

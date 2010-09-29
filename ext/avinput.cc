@@ -83,6 +83,8 @@ void AVInput::close(void)
 
 FramePtr AVInput::read(void) throw (Error)
 {
+  ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
   FramePtr retVal;
   AVPacket packet;
   while ( av_read_frame( m_ic, &packet ) >= 0 ) {
@@ -150,11 +152,11 @@ long long AVInput::pts(void) throw (Error)
 
 VALUE AVInput::registerRubyClass( VALUE rbModule )
 {
-  av_register_all();
   cRubyClass = rb_define_class_under( rbModule, "AVInput", rb_cObject );
   rb_define_singleton_method( cRubyClass, "new",
                               RUBY_METHOD_FUNC( wrapNew ), 1 );
   rb_define_const( cRubyClass, "AV_TIME_BASE", INT2NUM( AV_TIME_BASE ) );
+  rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
   rb_define_method( cRubyClass, "read", RUBY_METHOD_FUNC( wrapRead ), 0 );
   rb_define_method( cRubyClass, "time_base", RUBY_METHOD_FUNC( wrapTimeBase ), 0 );
   rb_define_method( cRubyClass, "seek", RUBY_METHOD_FUNC( wrapSeek ), 1 );
@@ -178,6 +180,13 @@ VALUE AVInput::wrapNew( VALUE rbClass, VALUE rbMRL )
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
+}
+
+VALUE AVInput::wrapClose( VALUE rbSelf )
+{
+  AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+  (*self)->close();
+  return rbSelf;
 }
 
 VALUE AVInput::wrapRead( VALUE rbSelf )

@@ -14,6 +14,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 #include "avinput.hh"
+#include "avoutput.hh"
 
 #ifdef WIN32
 #define DLLEXPORT __declspec(dllexport)
@@ -31,7 +32,9 @@ extern "C" {
   {
     rb_require( "hornetseye_frame" );
     VALUE rbHornetseye = rb_define_module( "Hornetseye" );
+    av_register_all();
     AVInput::registerRubyClass( rbHornetseye );
+    AVOutput::registerRubyClass( rbHornetseye );
     rb_require( "hornetseye_ffmpeg_ext.rb" );
   }
 
