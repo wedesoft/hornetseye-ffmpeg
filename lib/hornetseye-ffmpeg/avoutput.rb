@@ -14,7 +14,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-require 'hornetseye_frame'
-require 'hornetseye-ffmpeg/avinput'
-require 'hornetseye-ffmpeg/avoutput'
+# Namespace of Hornetseye computer vision library
+module Hornetseye
+
+  class AVOutput
+
+    class << self
+
+      alias_method :orig_new, :new
+
+      def new( mrl, bitrate, width, height, frame_rate )
+        orig_new mrl, bitrate, width, height,
+                 frame_rate.denominator, frame_rate.numerator
+      end
+
+    end
+
+  end
+
+end
 
