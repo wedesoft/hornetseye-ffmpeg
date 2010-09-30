@@ -19,7 +19,7 @@ PKG_FILES = [ 'Rakefile', 'README.md', 'COPYING', '.document' ] +
             RB_FILES + CC_FILES + HH_FILES + TS_FILES + TC_FILES
 BIN_FILES = [ 'README.md', 'COPYING', '.document', SO_FILE ] +
             RB_FILES + TS_FILES + TC_FILES
-SUMMARY = %q{Read video frames using libffmpeg}
+SUMMARY = %q{Read/write video frames using libffmpeg}
 DESCRIPTION = %q{This Ruby extension defines the class Hornetseye::AVInput for reading frames from video files.}
 AUTHOR = %q{Jan Wedekind}
 EMAIL = %q{jan@wedesoft.de}

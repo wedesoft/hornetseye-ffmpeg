@@ -1,4 +1,4 @@
-# hornetseye-frame - Colourspace conversions and compression
+# hornetseye-ffmpeg - Read/write video frames using libffmpeg
 # Copyright (C) 2010 Jan Wedekind
 #
 # This program is free software: you can redistribute it and/or modify
