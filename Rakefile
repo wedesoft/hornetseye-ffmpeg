@@ -113,8 +113,8 @@ begin
     s.extra_rdoc_files = []
     s.rdoc_options = %w{--no-private}
     s.add_dependency %<malloc>, [ '~> 1.1' ]
-    s.add_dependency %<multiarray>, [ '~> 0.5' ]
-    s.add_dependency %<hornetseye-frame>, [ '~> 0.1' ]
+    s.add_dependency %<multiarray>, [ '~> 0.6' ]
+    s.add_dependency %<hornetseye-frame>, [ '~> 0.2' ]
     s.add_development_dependency %q{rake}
   end
   GEM_SOURCE = "#{PKG_NAME}-#{PKG_VERSION}.gem"
@@ -136,8 +136,8 @@ begin
     s.extra_rdoc_files = []
     s.rdoc_options = %w{--no-private}
     s.add_dependency %<malloc>, [ '~> 1.1' ]
-    s.add_dependency %<multiarray>, [ '~> 0.5' ]
-    s.add_dependency %<hornetseye-frame>, [ '~> 0.1' ]
+    s.add_dependency %<multiarray>, [ '~> 0.6' ]
+    s.add_dependency %<hornetseye-frame>, [ '~> 0.2' ]
   end
   GEM_BINARY = "#{PKG_NAME}-#{PKG_VERSION}-#{$BINSPEC.platform}.gem"
   desc "Build the gem file #{GEM_SOURCE}"
@@ -173,7 +173,7 @@ file 'ext/avinput.o' => [ 'ext/avinput.cc', 'ext/avinput.hh', 'ext/error.hh',
 file 'ext/avoutput.o' => [ 'ext/avoutput.cc', 'ext/avoutput.hh', 'ext/error.hh',
                            'ext/frame.hh' ]
 file 'ext/frame.o' => [ 'ext/frame.cc', 'ext/frame.hh' ]
-file 'ext/init.o' => [ 'ext/init.cc', 'ext/avinput.hh' ]
+file 'ext/init.o' => [ 'ext/init.cc', 'ext/avinput.hh', 'ext/avoutput.hh' ]
 
 CLEAN.include 'ext/*.o'
 CLOBBER.include SO_FILE, 'doc', '.yardoc'

@@ -17,21 +17,31 @@
 
 using namespace std;
 
-Frame::Frame( const char *typecode, int width, int height, char *data ):
+Frame::Frame( const string &typecode, int width, int height, char *data ):
   m_frame( Qnil )
 {
   VALUE mModule = rb_define_module( "Hornetseye" );
   VALUE cMalloc = rb_define_class_under( mModule, "Malloc", rb_cObject );
   VALUE cFrame = rb_define_class_under( mModule, "Frame", rb_cObject );
-  VALUE rbSize = rb_funcall( cFrame, rb_intern( "typesize" ), 3,
-                             rb_const_get( mModule, rb_intern( typecode ) ),
+  VALUE rbSize = rb_funcall( cFrame, rb_intern( "storage_size" ), 3,
+                             rb_const_get( mModule, rb_intern( typecode.c_str() ) ),
                              INT2NUM( width ), INT2NUM( height ) );
-  VALUE rbMemory = Data_Wrap_Struct( cMalloc, 0, 0, (void *)data );
-  rb_ivar_set( rbMemory, rb_intern( "@size" ), rbSize );
+  VALUE rbMemory;
+  if ( data != NULL ) {
+    rbMemory = Data_Wrap_Struct( cMalloc, 0, 0, (void *)data );
+    rb_ivar_set( rbMemory, rb_intern( "@size" ), rbSize );
+  } else
+    rbMemory = rb_funcall( cMalloc, rb_intern( "new" ), 1, rbSize );
   m_frame = rb_funcall( cFrame, rb_intern( "import" ), 4,
-                        rb_const_get( mModule, rb_intern( typecode ) ),
-                        INT2NUM( width ), INT2NUM( height ),
-                        rbMemory );
+                        rb_const_get( mModule, rb_intern( typecode.c_str() ) ),
+                        INT2NUM( width ), INT2NUM( height ), rbMemory );
+}
+
+string Frame::typecode(void)
+{
+  VALUE rbString = rb_funcall( rb_funcall( m_frame, rb_intern( "typecode" ), 0 ),
+                               rb_intern( "to_s" ), 0 );
+  return StringValuePtr( rbString );
 }
 
 int Frame::width(void)
@@ -46,7 +56,7 @@ int Frame::height(void)
 
 char *Frame::data(void)
 {
-  VALUE rbMemory = rb_iv_get( m_frame, "@memory" );
+  VALUE rbMemory = rb_funcall( m_frame, rb_intern( "memory" ), 0 );
   char *ptr;
   Data_Get_Struct( rbMemory, char, ptr );
   return ptr;

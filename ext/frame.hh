@@ -18,13 +18,15 @@
 
 #include <boost/smart_ptr.hpp>
 #include <ruby.h>
+#include <string>
 
 class Frame
 {
 public:
-  Frame( const char *typecode, int width, int height, char *data );
+  Frame( const std::string &typecode, int width, int height, char *data = NULL );
   Frame( VALUE rbFrame ): m_frame( rbFrame ) {}
   virtual ~Frame(void) {}
+  std::string typecode(void);
   int width(void);
   int height(void);
   char *data(void);
