@@ -28,15 +28,15 @@ HOMEPAGE = %q{http://wedesoft.github.com/hornetseye-ffmpeg/}
 OBJ = CC_FILES.ext 'o'
 $CXXFLAGS = ENV[ 'CXXFLAGS' ] || ''
 $CXXFLAGS = "#{$CXXFLAGS} -fPIC"
-if Config::CONFIG[ 'rubyhdrdir' ]
-  $CXXFLAGS += "#{$CXXFLAGS} -I#{Config::CONFIG[ 'rubyhdrdir' ]} " +
-              "-I#{Config::CONFIG[ 'rubyhdrdir' ]}/#{Config::CONFIG[ 'arch' ]}"
+if RbConfig::CONFIG[ 'rubyhdrdir' ]
+  $CXXFLAGS += "#{$CXXFLAGS} -I#{RbConfig::CONFIG[ 'rubyhdrdir' ]} " +
+              "-I#{RbConfig::CONFIG[ 'rubyhdrdir' ]}/#{RbConfig::CONFIG[ 'arch' ]}"
 else
-  $CXXFLAGS += "#{$CXXFLAGS} -I#{Config::CONFIG[ 'archdir' ]}"
+  $CXXFLAGS += "#{$CXXFLAGS} -I#{RbConfig::CONFIG[ 'archdir' ]}"
 end
-$LIBRUBYARG = Config::CONFIG[ 'LIBRUBYARG' ]
-$SITELIBDIR = Config::CONFIG[ 'sitelibdir' ]
-$SITEARCHDIR = Config::CONFIG[ 'sitearchdir' ]
+$LIBRUBYARG = RbConfig::CONFIG[ 'LIBRUBYARG' ]
+$SITELIBDIR = RbConfig::CONFIG[ 'sitelibdir' ]
+$SITEARCHDIR = RbConfig::CONFIG[ 'sitearchdir' ]
 
 task :default => :all
 
