@@ -93,6 +93,7 @@ Rake::PackageTask.new PKG_NAME, PKG_VERSION do |p|
 end
 
 begin
+  require 'rubygems'
   require 'rubygems/builder'
   $SPEC = Gem::Specification.new do |s|
     s.name = PKG_NAME
