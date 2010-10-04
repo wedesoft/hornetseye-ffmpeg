@@ -30,8 +30,8 @@ OBJ = CC_FILES.ext 'o'
 $CXXFLAGS = ENV[ 'CXXFLAGS' ] || ''
 $CXXFLAGS = "#{$CXXFLAGS} -fPIC -DNDEBUG"
 if RbConfig::CONFIG[ 'rubyhdrdir' ]
-  $CXXFLAGS += "#{$CXXFLAGS} -I#{RbConfig::CONFIG[ 'rubyhdrdir' ]} " +
-              "-I#{RbConfig::CONFIG[ 'rubyhdrdir' ]}/#{RbConfig::CONFIG[ 'arch' ]}"
+  $CXXFLAGS = "#{$CXXFLAGS} -I#{RbConfig::CONFIG[ 'rubyhdrdir' ]} " +
+             "-I#{RbConfig::CONFIG[ 'rubyhdrdir' ]}/#{RbConfig::CONFIG[ 'arch' ]}"
 else
   $CXXFLAGS += "#{$CXXFLAGS} -I#{RbConfig::CONFIG[ 'archdir' ]}"
 end
@@ -170,8 +170,11 @@ rule '.o' => '.cc' do |t|
    sh "#{CXX} #{$CXXFLAGS} -c -o #{t.name} #{t.source}"
 end
 
-file ".depends.mf" => CC_FILES do |t|
-  sh "#{CXX} -MM #{$CXXFLAGS} #{t.prerequisites.join ' '} > #{t.name}"
+file ".depends.mf" do |t|
+  sh "makedepend -f- -- #{$CXXFLAGS} -- #{CC_FILES.join ' '} > #{t.name}"
+end
+CC_FILES.each do |t|
+  file t.ext(".o") => t
 end
 import ".depends.mf"
 
