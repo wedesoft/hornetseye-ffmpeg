@@ -62,3 +62,8 @@ char *Frame::data(void)
   return ptr;
 }
 
+void Frame::markRubyMember(void)
+{
+  rb_gc_mark( m_frame );
+}
+

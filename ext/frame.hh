@@ -31,6 +31,7 @@ public:
   int height(void);
   char *data(void);
   VALUE rubyObject(void) { return m_frame; }
+  void markRubyMember(void);
 protected:
   VALUE m_frame;
 };
