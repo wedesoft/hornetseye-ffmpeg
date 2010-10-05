@@ -17,7 +17,7 @@
 #define FRAME_HH
 
 #include <boost/smart_ptr.hpp>
-#include <ruby.h>
+#include "rubyinc.hh"
 #include <string>
 
 class Frame

@@ -21,8 +21,7 @@ extern "C" {
   #include <libswscale/swscale.h>
   #include <libavformat/avformat.h>
 }
-#undef RSHIFT
-#include <ruby.h>
+#include "rubyinc.hh"
 #include "error.hh"
 #include "frame.hh"
 
