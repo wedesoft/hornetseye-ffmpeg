@@ -61,6 +61,12 @@ module Hornetseye
       orig_duration * time_base
     end
 
+    alias_method :orig_start_time, :start_time
+
+    def start_time
+      orig_start_time * time_base
+    end
+
   end
 
 end
