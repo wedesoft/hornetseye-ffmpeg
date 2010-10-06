@@ -55,6 +55,12 @@ module Hornetseye
       pts * time_base
     end
 
+    alias_method :orig_duration, :duration
+
+    def duration
+      orig_duration * time_base
+    end
+
   end
 
 end

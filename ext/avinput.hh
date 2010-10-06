@@ -36,6 +36,7 @@ public:
   int height(void) const throw (Error);
   AVRational timeBase(void) throw (Error);
   AVRational frameRate(void) throw (Error);
+  long long duration(void) throw (Error);
   void seek( long timestamp ) throw (Error);
   long long pts(void) throw (Error);
   static VALUE cRubyClass;
@@ -46,6 +47,7 @@ public:
   static VALUE wrapRead( VALUE rbSelf );
   static VALUE wrapTimeBase( VALUE rbSelf );
   static VALUE wrapFrameRate( VALUE rbSelf );
+  static VALUE wrapDuration( VALUE rbSelf );
   static VALUE wrapWidth( VALUE rbSelf );
   static VALUE wrapHeight( VALUE rbSelf );
   static VALUE wrapSeek( VALUE rbSelf, VALUE rbPos );

@@ -159,6 +159,13 @@ AVRational AVInput::frameRate(void) throw (Error)
   return m_ic->streams[ m_idx ]->r_frame_rate;
 }
 
+long long AVInput::duration(void) throw (Error)
+{
+  ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_ic->streams[ m_idx ]->duration;
+}
+
 void AVInput::seek( long timestamp ) throw (Error)
 {
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
@@ -185,6 +192,7 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "read", RUBY_METHOD_FUNC( wrapRead ), 0 );
   rb_define_method( cRubyClass, "time_base", RUBY_METHOD_FUNC( wrapTimeBase ), 0 );
   rb_define_method( cRubyClass, "frame_rate", RUBY_METHOD_FUNC( wrapFrameRate ), 0 );
+  rb_define_method( cRubyClass, "duration", RUBY_METHOD_FUNC( wrapDuration ), 0 );
   rb_define_method( cRubyClass, "width", RUBY_METHOD_FUNC( wrapWidth ), 0 );
   rb_define_method( cRubyClass, "height", RUBY_METHOD_FUNC( wrapHeight ), 0 );
   rb_define_method( cRubyClass, "seek", RUBY_METHOD_FUNC( wrapSeek ), 1 );
@@ -252,6 +260,18 @@ VALUE AVInput::wrapFrameRate( VALUE rbSelf )
     AVRational frameRate = (*self)->frameRate();
     retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
                          INT2NUM( frameRate.num ), INT2NUM( frameRate.den ) );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapDuration( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    retVal = LL2NUM( (*self)->duration() );
   } catch( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
