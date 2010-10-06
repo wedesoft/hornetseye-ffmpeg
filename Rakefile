@@ -171,7 +171,9 @@ rule '.o' => '.cc' do |t|
 end
 
 file ".depends.mf" do |t|
-  sh "makedepend -f- -- #{$CXXFLAGS} -- #{CC_FILES.join ' '} > #{t.name}"
+  sh "g++ -MM #{$CXXFLAGS} #{CC_FILES.join ' '} | " +
+    "sed -e :a -e N -e 's/\\n/\\$/g' -e ta | " +
+    "sed -e 's/ *\\\\\\$ */ /g' -e 's/\\$/\\n/g' | sed -e 's/^/ext\\//' > #{t.name}"
 end
 CC_FILES.each do |t|
   file t.ext(".o") => t
