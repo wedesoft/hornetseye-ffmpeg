@@ -32,6 +32,7 @@ public:
   virtual ~AVInput(void);
   void close(void);
   FramePtr read(void) throw (Error);
+  bool status(void) const;
   int width(void) const throw (Error);
   int height(void) const throw (Error);
   AVRational timeBase(void) throw (Error);
@@ -46,6 +47,7 @@ public:
   static VALUE wrapNew( VALUE rbClass, VALUE rbMRL );
   static VALUE wrapClose( VALUE rbSelf );
   static VALUE wrapRead( VALUE rbSelf );
+  static VALUE wrapStatus( VALUE rbSelf );
   static VALUE wrapTimeBase( VALUE rbSelf );
   static VALUE wrapFrameRate( VALUE rbSelf );
   static VALUE wrapDuration( VALUE rbSelf );

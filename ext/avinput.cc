@@ -131,6 +131,11 @@ FramePtr AVInput::read(void) throw (Error)
   return retVal;
 }
 
+bool AVInput::status(void) const
+{
+  return m_ic != NULL;
+}
+
 int AVInput::width(void) const throw (Error)
 {
   ERRORMACRO( m_dec != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
@@ -197,6 +202,7 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_const( cRubyClass, "AV_TIME_BASE", INT2NUM( AV_TIME_BASE ) );
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
   rb_define_method( cRubyClass, "read", RUBY_METHOD_FUNC( wrapRead ), 0 );
+  rb_define_method( cRubyClass, "status?", RUBY_METHOD_FUNC( wrapStatus ), 0 );
   rb_define_method( cRubyClass, "time_base", RUBY_METHOD_FUNC( wrapTimeBase ), 0 );
   rb_define_method( cRubyClass, "frame_rate", RUBY_METHOD_FUNC( wrapFrameRate ), 0 );
   rb_define_method( cRubyClass, "duration", RUBY_METHOD_FUNC( wrapDuration ), 0 );
@@ -244,6 +250,12 @@ VALUE AVInput::wrapRead( VALUE rbSelf )
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
+}
+
+VALUE AVInput::wrapStatus( VALUE rbSelf )
+{
+  AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+  return (*self)->status() ? Qtrue : Qfalse;
 }
 
 VALUE AVInput::wrapTimeBase( VALUE rbSelf )

@@ -23,9 +23,7 @@ Frame::Frame( const string &typecode, int width, int height, char *data ):
   VALUE mModule = rb_define_module( "Hornetseye" );
   VALUE cMalloc = rb_define_class_under( mModule, "Malloc", rb_cObject );
   VALUE cFrame = rb_define_class_under( mModule, "Frame", rb_cObject );
-  VALUE rbSize = rb_funcall( cFrame, rb_intern( "storage_size" ), 3,
-                             rb_const_get( mModule, rb_intern( typecode.c_str() ) ),
-                             INT2NUM( width ), INT2NUM( height ) );
+  VALUE rbSize = INT2NUM( storageSize( typecode, width, height ) );
   VALUE rbMemory;
   if ( data != NULL ) {
     rbMemory = Data_Wrap_Struct( cMalloc, 0, 0, (void *)data );
@@ -67,3 +65,12 @@ void Frame::markRubyMember(void)
   rb_gc_mark( m_frame );
 }
 
+int Frame::storageSize( const std::string &typecode, int width, int height )
+{
+  VALUE mModule = rb_define_module( "Hornetseye" );
+  VALUE cFrame = rb_define_class_under( mModule, "Frame", rb_cObject );
+  return NUM2INT( rb_funcall( cFrame, rb_intern( "storage_size" ), 3,
+                              rb_const_get( mModule, rb_intern( typecode.c_str() ) ),
+                              INT2NUM( width ), INT2NUM( height ) ) );
+}
+ 
