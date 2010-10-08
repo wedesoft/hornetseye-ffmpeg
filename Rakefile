@@ -102,19 +102,66 @@ file 'ext/config.h' do |t|
   s = "/* config.h. Generated from Rakefile by rake. */\n"
   if check_c_header 'libswscale/swscale.h'
     s << "#define HAVE_LIBSWSCALE_INCDIR 1\n"
-  else
-    unless check_c_header 'ffmpeg/swscale.h'
-      raise 'Cannot find swscale.h header file'
-    end
+  elsif check_c_header 'ffmpeg/swscale.h'
     s << "#undef HAVE_LIBSWSCALE_INCDIR\n"
-  end
-  if check_c_header 'libavformat/avformat.h'
-    s << "#define HAVE_LIBAVFORMAT_INCDIR 1\n"
   else
-    unless check_c_header 'ffmpeg/avformat.h'
-      raise 'Cannot find swscale.h header file'
-    end
+    raise 'Cannot find swscale.h header file'
+  end
+  have_libavformat_incdir = check_c_header 'libavformat/avformat.h'
+  if have_libavformat_incdir
+    s << "#define HAVE_LIBAVFORMAT_INCDIR 1\n"
+  elsif check_c_header 'ffmpeg/avformat.h'
     s << "#undef HAVE_LIBAVFORMAT_INCDIR\n"
+  else
+    raise 'Cannot find swscale.h header file'
+  end
+  have_libavformat_alloc_context = check_program do |c|
+    c.puts <<EOS
+extern "C" {
+  #include <#{have_libavformat_incdir ? 'libavformat' : 'ffmpeg'}/avformat.h>
+}
+int main(void) { avformat_alloc_context(); return 0; }
+EOS
+  end
+  if have_libavformat_alloc_context
+    s << "#define HAVE_LIBAVFORMAT_ALLOC_CONTEXT 1\n"
+  else
+    have_alloc_format_context = check_program do |c|
+      c.puts <<EOS
+extern "C" {
+  #include <#{have_libavformat_incdir ? 'libavformat' : 'ffmpeg'}/avformat.h>
+}
+int main(void) { av_alloc_format_context(); return 0; }
+EOS
+    end
+    unless have_alloc_format_context
+      raise 'Cannot find constructor for AVFormatContext'
+    end
+    s << "#undef HAVE_LIBAVFORMAT_ALLOC_CONTEXT\n"
+  end
+  have_byteio_ptr = check_program do |c|
+    c.puts <<EOS
+extern "C" {
+  #include <#{have_libavformat_incdir ? 'libavformat' : 'ffmpeg'}/avformat.h>
+}
+int main(void) { AVFormatContext *c; url_fclose( c->pb ); return 0; }
+EOS
+  end
+  if have_byteio_ptr
+    s << "#define HAVE_BYTEIO_PTR 1\n"
+  else
+    have_byteio_inst = check_program do |c|
+      c.puts <<EOS
+extern "C" {
+  #include <#{have_libavformat_incdir ? 'libavformat' : 'ffmpeg'}/avformat.h>
+}
+int main(void) { AVFormatContext *c; url_fclose( &c->pb ); return 0; }
+EOS
+    end
+    unless have_byteio_inst
+      raise 'Cannot find ByteIOContext member variable'
+    end
+    s << "#undef HAVE_BYTEIO_PTR\n"
   end
   File.open( t.name, 'w' ) { |f| f.puts s }
 end
@@ -227,5 +274,5 @@ end
 import ".depends.mf"
 
 CLEAN.include 'ext/*.o'
-CLOBBER.include SO_FILE, 'doc', '.yardoc', '.depends.mf', 'config.h'
+CLOBBER.include SO_FILE, 'doc', '.yardoc', '.depends.mf', 'ext/config.h'
 

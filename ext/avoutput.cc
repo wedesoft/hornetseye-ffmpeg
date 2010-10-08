@@ -37,7 +37,11 @@ AVOutput::AVOutput( const string &mrl, int bitrate, int width, int height,
     if ( format == NULL ) format = guess_format( "mpeg", NULL, NULL );
     ERRORMACRO( format != NULL, Error, ,
                 "Could not find suitable output format for \"" << mrl << "\""  );
+#ifdef HAVE_LIBAVFORMAT_ALLOC_CONTEXT
     m_oc = avformat_alloc_context();
+#else
+    m_oc = av_alloc_format_context();
+#endif
     ERRORMACRO( m_oc != NULL, Error, , "Failure allocating format context" );
     m_oc->oformat = format;
     snprintf( m_oc->filename, sizeof( m_oc->filename ), "%s", mrl.c_str() );
@@ -131,7 +135,11 @@ void AVOutput::close(void)
     };
     m_video_st = NULL;
     if ( m_file_open ) {
+#ifdef HAVE_BYTEIO_PTR
       url_fclose( m_oc->pb );
+#else
+      url_fclose( &m_oc->pb );
+#endif
       m_file_open = false;
     };
     av_free( m_oc );
