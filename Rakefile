@@ -87,32 +87,33 @@ def check_program
   end
 end
 
+def check_c_header( name )
+  check_program do |c|
+    c.puts <<EOS
+extern "C" {
+  #include <#{name}>
+}
+int main(void) { return 0; }
+EOS
+  end
+end
+
 file 'ext/config.h' do |t|
   s = "/* config.h. Generated from Rakefile by rake. */\n"
-  libswscale_incdir = check_program do |c|
-    c.puts <<EOS
-extern "C" {
-  #include <libswscale/swscale.h>
-}
-int main(void) { return 0; }
-EOS
-  end
-  if libswscale_incdir
+  if check_c_header 'libswscale/swscale.h'
     s << "#define HAVE_LIBSWSCALE_INCDIR 1\n"
   else
+    unless check_c_header 'ffmpeg/swscale.h'
+      raise 'Cannot find swscale.h header file'
+    end
     s << "#undef HAVE_LIBSWSCALE_INCDIR\n"
   end
-  libavformat_incdir = check_program do |c|
-    c.puts <<EOS
-extern "C" {
-  #include <libavformat/avformat.h>
-}
-int main(void) { return 0; }
-EOS
-  end
-  if libavformat_incdir
+  if check_c_header 'libavformat/avformat.h'
     s << "#define HAVE_LIBAVFORMAT_INCDIR 1\n"
   else
+    unless check_c_header 'ffmpeg/avformat.h'
+      raise 'Cannot find swscale.h header file'
+    end
     s << "#undef HAVE_LIBAVFORMAT_INCDIR\n"
   end
   File.open( t.name, 'w' ) { |f| f.puts s }
@@ -226,5 +227,5 @@ end
 import ".depends.mf"
 
 CLEAN.include 'ext/*.o'
-CLOBBER.include SO_FILE, 'doc', '.yardoc', '.depends.mf'
+CLOBBER.include SO_FILE, 'doc', '.yardoc', '.depends.mf', 'config.h'
 
