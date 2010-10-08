@@ -16,10 +16,22 @@
 #ifndef AVINPUT_HH
 #define AVINPUT_HH
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <boost/shared_ptr.hpp>
 extern "C" {
+#ifdef HAVE_LIBSWSCALE_INCDIR
   #include <libswscale/swscale.h>
+#else
+  #include <ffmpeg/swscale.h>
+#endif
+#ifdef HAVE_LIBAVFORMAT_INCDIR
   #include <libavformat/avformat.h>
+#else
+  #include <ffmpeg/avformat.h>
+#endif
 }
 #include "rubyinc.hh"
 #include "error.hh"

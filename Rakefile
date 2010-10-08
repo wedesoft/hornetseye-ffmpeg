@@ -28,7 +28,7 @@ HOMEPAGE = %q{http://wedesoft.github.com/hornetseye-ffmpeg/}
 
 OBJ = CC_FILES.ext 'o'
 $CXXFLAGS = ENV[ 'CXXFLAGS' ] || ''
-$CXXFLAGS = "#{$CXXFLAGS} -fPIC -DNDEBUG"
+$CXXFLAGS = "#{$CXXFLAGS} -fPIC -DNDEBUG -DHAVE_CONFIG_H"
 if RbConfig::CONFIG[ 'rubyhdrdir' ]
   $CXXFLAGS = "#{$CXXFLAGS} -I#{RbConfig::CONFIG[ 'rubyhdrdir' ]} " +
              "-I#{RbConfig::CONFIG[ 'rubyhdrdir' ]}/#{RbConfig::CONFIG[ 'arch' ]}"
@@ -71,6 +71,51 @@ task :uninstall do
     end
     FileUtils.rm_f "#{$SITEARCHDIR}/#{File.basename SO_FILE}"
   end
+end
+
+desc 'Create config.h'
+task :config_h => 'ext/config.h'
+
+def check_program
+  f_base_name = 'rakeconf'
+  begin
+    File.open( "#{f_base_name}.cc", 'w' ) { |f| yield f }
+    `#{CXX} -S #{$CXXFLAGS} -c -o #{f_base_name}.o #{f_base_name}.cc 2>&1 >> rake.log`
+    $?.exitstatus == 0
+  ensure
+    File.delete *Dir.glob( "#{f_base_name}.*" )
+  end
+end
+
+file 'ext/config.h' do |t|
+  s = "/* config.h. Generated from Rakefile by rake. */\n"
+  libswscale_incdir = check_program do |c|
+    c.puts <<EOS
+extern "C" {
+  #include <libswscale/swscale.h>
+}
+int main(void) { return 0; }
+EOS
+  end
+  if libswscale_incdir
+    s << "#define HAVE_LIBSWSCALE_INCDIR 1\n"
+  else
+    s << "#undef HAVE_LIBSWSCALE_INCDIR\n"
+  end
+  libavformat_incdir = check_program do |c|
+    c.puts <<EOS
+extern "C" {
+  #include <libavformat/avformat.h>
+}
+int main(void) { return 0; }
+EOS
+  end
+  if libavformat_incdir
+    s << "#define HAVE_LIBAVFORMAT_INCDIR 1\n"
+  else
+    s << "#undef HAVE_LIBAVFORMAT_INCDIR\n"
+  end
+  File.open( t.name, 'w' ) { |f| f.puts s }
 end
 
 Rake::TestTask.new do |t|
@@ -170,7 +215,7 @@ rule '.o' => '.cc' do |t|
    sh "#{CXX} #{$CXXFLAGS} -c -o #{t.name} #{t.source}"
 end
 
-file ".depends.mf" do |t|
+file ".depends.mf" => :config_h do |t|
   sh "g++ -MM #{$CXXFLAGS} #{CC_FILES.join ' '} | " +
     "sed -e :a -e N -e 's/\\n/\\$/g' -e ta | " +
     "sed -e 's/ *\\\\\\$ */ /g' -e 's/\\$/\\n/g' | sed -e 's/^/ext\\//' > #{t.name}"
