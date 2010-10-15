@@ -51,7 +51,7 @@ public:
   AVRational frameRate(void) throw (Error);
   long long duration(void) throw (Error);
   long long startTime(void) throw (Error);
-  void seek( long timestamp ) throw (Error);
+  void seek( long long timestamp ) throw (Error);
   long long pts(void) throw (Error);
   static VALUE cRubyClass;
   static VALUE registerRubyClass( VALUE rbModule );

@@ -178,7 +178,7 @@ long long AVInput::startTime(void) throw (Error)
   return m_ic->streams[ m_idx ]->start_time;
 }
 
-void AVInput::seek( long timestamp ) throw (Error)
+void AVInput::seek( long long timestamp ) throw (Error)
 {
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
