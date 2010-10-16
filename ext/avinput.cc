@@ -200,6 +200,7 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_singleton_method( cRubyClass, "new",
                               RUBY_METHOD_FUNC( wrapNew ), 1 );
   rb_define_const( cRubyClass, "AV_TIME_BASE", INT2NUM( AV_TIME_BASE ) );
+  rb_define_const( cRubyClass, "AV_NOPTS_VALUE", LL2NUM( AV_NOPTS_VALUE ) );
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
   rb_define_method( cRubyClass, "read", RUBY_METHOD_FUNC( wrapRead ), 0 );
   rb_define_method( cRubyClass, "status?", RUBY_METHOD_FUNC( wrapStatus ), 0 );

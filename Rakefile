@@ -7,7 +7,7 @@ require 'rake/loaders/makefile'
 require 'rbconfig'
 
 PKG_NAME = 'hornetseye-ffmpeg'
-PKG_VERSION = '0.4.2'
+PKG_VERSION = '0.4.3'
 CXX = ENV[ 'CXX' ] || 'g++'
 STRIP = ENV[ 'STRIP' ] || 'strip'
 RB_FILES = FileList[ 'lib/**/*.rb' ]

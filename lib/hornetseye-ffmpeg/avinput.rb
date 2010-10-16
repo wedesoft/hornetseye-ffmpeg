@@ -52,19 +52,19 @@ module Hornetseye
     end
 
     def pos
-      pts * time_base
+      pts == AV_NOPTS_VALUE ? nil : pts * time_base
     end
 
     alias_method :orig_duration, :duration
 
     def duration
-      orig_duration * time_base
+      orig_duration == AV_NOPTS_VALUE ? nil : orig_duration * time_base
     end
 
     alias_method :orig_start_time, :start_time
 
     def start_time
-      orig_start_time * time_base
+      orig_start_time == AV_NOPTS_VALUE ? nil : orig_start_time * time_base
     end
 
   end
