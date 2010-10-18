@@ -7,7 +7,7 @@ require 'rake/loaders/makefile'
 require 'rbconfig'
 
 PKG_NAME = 'hornetseye-ffmpeg'
-PKG_VERSION = '0.4.3'
+PKG_VERSION = '0.5.0'
 CXX = ENV[ 'CXX' ] || 'g++'
 STRIP = ENV[ 'STRIP' ] || 'strip'
 RB_FILES = FileList[ 'lib/**/*.rb' ]
@@ -208,7 +208,7 @@ begin
     s.extra_rdoc_files = []
     s.rdoc_options = %w{--no-private}
     s.add_dependency %<malloc>, [ '~> 1.1' ]
-    s.add_dependency %<multiarray>, [ '~> 0.6' ]
+    s.add_dependency %<multiarray>, [ '~> 0.11' ]
     s.add_dependency %<hornetseye-frame>, [ '~> 0.3' ]
     s.add_development_dependency %q{rake}
   end
@@ -231,7 +231,7 @@ begin
     s.extra_rdoc_files = []
     s.rdoc_options = %w{--no-private}
     s.add_dependency %<malloc>, [ '~> 1.1' ]
-    s.add_dependency %<multiarray>, [ '~> 0.6' ]
+    s.add_dependency %<multiarray>, [ '~> 0.11' ]
     s.add_dependency %<hornetseye-frame>, [ '~> 0.3' ]
   end
   GEM_BINARY = "#{PKG_NAME}-#{PKG_VERSION}-#{$BINSPEC.platform}.gem"

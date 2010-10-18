@@ -13,7 +13,6 @@
 
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
-#undef NDEBUG
 #ifndef NDEBUG
 #include <iostream>
 #endif
@@ -33,7 +32,7 @@ AVInput::AVInput( const string &mrl ) throw (Error):
   m_mrl( mrl ), m_ic( NULL ), m_videoDec( NULL ), m_audioDec( NULL ),
   m_videoCodec( NULL ), m_audioCodec( NULL ),
   m_videoStream( -1 ), m_audioStream( -1 ), m_pts( 0 ),
-  m_swsContext( NULL ), m_frame( NULL )
+  m_swsContext( NULL ), m_avFrame( NULL )
 {
   try {
     int err = av_open_input_file( &m_ic, mrl.c_str(), NULL, 0, NULL );
@@ -61,25 +60,28 @@ AVInput::AVInput( const string &mrl ) throw (Error):
     ERRORMACRO( m_videoCodec != NULL, Error, , "Could not find video decoder for "
                 "file \"" << mrl << "\"" );
     err = avcodec_open( m_videoDec, m_videoCodec );
-    if ( err < 0 ) m_videoCodec = NULL;
-    ERRORMACRO( err >= 0, Error, , "Error opening video codec for file \""
-                << mrl << "\": " << strerror( -err ) );
+    if ( err < 0 ) {
+      m_videoCodec = NULL;
+      ERRORMACRO( false, Error, , "Error opening video codec for file \""
+                  << mrl << "\": " << strerror( -err ) );
+    };
     if ( m_audioDec != NULL ) {
       m_audioCodec = avcodec_find_decoder( m_audioDec->codec_id );
       ERRORMACRO( m_audioCodec != NULL, Error, , "Could not find audio decoder for "
                   "file \"" << mrl << "\"" );
       err = avcodec_open( m_audioDec, m_audioCodec );
-      if ( err < 0 ) m_audioCodec = NULL;
-      ERRORMACRO( err >= 0, Error, , "Error opening audio codec for file \""
-                  << mrl << "\": " << strerror( -err ) );
-    
+      if ( err < 0 ) {
+        m_audioCodec = NULL;
+        ERRORMACRO( false, Error, , "Error opening audio codec for file \""
+                    << mrl << "\": " << strerror( -err ) );
+      };
     };
     m_swsContext = sws_getContext( m_videoDec->width, m_videoDec->height,
                                    m_videoDec->pix_fmt,
                                    m_videoDec->width, m_videoDec->height,
                                    PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0 );
-    m_frame = avcodec_alloc_frame();
-    ERRORMACRO( m_frame, Error, , "Error allocating frame" );
+    m_avFrame = avcodec_alloc_frame();
+    ERRORMACRO( m_avFrame, Error, , "Error allocating frame" );
   } catch ( Error &e ) {
     close();
     throw e;
@@ -93,9 +95,10 @@ AVInput::~AVInput(void)
 
 void AVInput::close(void)
 {
-  if ( m_frame ) {
-    av_free( m_frame );
-    m_frame = NULL;
+  m_frame.reset();
+  if ( m_avFrame ) {
+    av_free( m_avFrame );
+    m_avFrame = NULL;
   };
   if ( m_swsContext ) {
     sws_freeContext( m_swsContext );
@@ -120,19 +123,18 @@ void AVInput::close(void)
   };
 }
 
-FramePtr AVInput::read(void) throw (Error)
+void AVInput::readAV(void) throw (Error)
 {
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  FramePtr retVal;
   AVPacket packet;
   while ( av_read_frame( m_ic, &packet ) >= 0 ) {
     if ( packet.stream_index == m_videoStream ) {
       int frameFinished;
-      int err = avcodec_decode_video( m_videoDec, m_frame, &frameFinished,
+      int err = avcodec_decode_video( m_videoDec, m_avFrame, &frameFinished,
                                       packet.data, packet.size );
       ERRORMACRO( err >= 0, Error, ,
-                  "Error decoding frame of video \"" << m_mrl << "\"" );
+                  "Error decoding video frame of video \"" << m_mrl << "\"" );
       if ( frameFinished ) {
         if ( packet.dts != AV_NOPTS_VALUE ) m_pts = packet.dts;
         av_free_packet( &packet );
@@ -148,20 +150,56 @@ FramePtr AVInput::read(void) throw (Error)
         picture.linesize[0] = m_videoDec->width;
         picture.linesize[1] = m_videoDec->width / 2;
         picture.linesize[2] = m_videoDec->width / 2;
-        sws_scale( m_swsContext, m_frame->data, m_frame->linesize, 0,
+        sws_scale( m_swsContext, m_avFrame->data, m_avFrame->linesize, 0,
                    m_videoDec->height, picture.data, picture.linesize );
-        retVal = FramePtr( new Frame( "YV12", m_videoDec->width, m_videoDec->height,
-                                      m_data.get() ) );
+        m_frame = FramePtr( new Frame( "YV12", m_videoDec->width, m_videoDec->height,
+                                       m_data.get() ) );
         break;
       } else
         av_free_packet( &packet );
     } else if ( packet.stream_index == m_audioStream ) {
+      unsigned char *data = packet.data;
+      int size = packet.size;
+      unsigned char *frame = NULL;
+      int frameSize = 0;
+      while ( size > 0 ) {
+        short int buffer[ ( AVCODEC_MAX_AUDIO_FRAME_SIZE +
+                            FF_INPUT_BUFFER_PADDING_SIZE ) / sizeof( short int ) ];
+        int bufSize = sizeof( buffer );
+        int len = avcodec_decode_audio2( m_audioDec, &buffer[0], &bufSize,
+                                         data, size );
+        if ( len < 0 ) {
+          if ( frame != NULL ) free( frame );
+          ERRORMACRO( false, Error, , "Error decoding audio frame of video \""
+                      << m_mrl << "\"" );
+        };
+        data += len;
+        size -= len;
+        if ( bufSize > 0 ) {
+          if ( frame != NULL ) {
+            frame = (unsigned char *)malloc( bufSize );
+            memcpy( frame, &buffer[0], bufSize );
+            frameSize = bufSize;
+          } else {
+            unsigned char *extended = (unsigned char *)malloc( frameSize + bufSize );
+            memcpy( extended, frame, frameSize );
+            memcpy( extended + frameSize, &buffer[0], bufSize );
+            free( frame );
+            frame = extended;
+            frameSize += bufSize;
+          };
+        };
+      };
       av_free_packet( &packet );
+      //if ( frame != NULL )
+      //  break;
+      if ( frame != NULL ) {
+        free( frame );
+      };
     } else
       av_free_packet( &packet );
   };
-  ERRORMACRO( retVal.get(), Error, , "No more frames available" );
-  return retVal;
+  ERRORMACRO( m_frame.get(), Error, , "No more frames available" );
 }
 
 bool AVInput::status(void) const
@@ -195,6 +233,20 @@ AVRational AVInput::frameRate(void) throw (Error)
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
   return m_ic->streams[ m_videoStream ]->r_frame_rate;
+}
+
+int AVInput::sampleRate(void) throw (Error)
+{
+  ERRORMACRO( m_audioDec != NULL, Error, , "Audio \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_audioDec->sample_rate;
+}
+
+int AVInput::channels(void) throw (Error)
+{
+  ERRORMACRO( m_audioDec != NULL, Error, , "Audio \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_audioDec->channels;
 }
 
 long long AVInput::duration(void) throw (Error)
@@ -239,6 +291,8 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "status?", RUBY_METHOD_FUNC( wrapStatus ), 0 );
   rb_define_method( cRubyClass, "time_base", RUBY_METHOD_FUNC( wrapTimeBase ), 0 );
   rb_define_method( cRubyClass, "frame_rate", RUBY_METHOD_FUNC( wrapFrameRate ), 0 );
+  rb_define_method( cRubyClass, "sample_rate", RUBY_METHOD_FUNC( wrapSampleRate ), 0 );
+  rb_define_method( cRubyClass, "channels", RUBY_METHOD_FUNC( wrapChannels ), 0 );
   rb_define_method( cRubyClass, "duration", RUBY_METHOD_FUNC( wrapDuration ), 0 );
   rb_define_method( cRubyClass, "start_time", RUBY_METHOD_FUNC( wrapStartTime ), 0 );
   rb_define_method( cRubyClass, "width", RUBY_METHOD_FUNC( wrapWidth ), 0 );
@@ -275,11 +329,17 @@ VALUE AVInput::wrapClose( VALUE rbSelf )
 
 VALUE AVInput::wrapRead( VALUE rbSelf )
 {
+  AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+  return (*self)->wrapReadAV();
+}
+
+VALUE AVInput::wrapReadAV(void)
+{
   VALUE retVal = Qnil;
   try {
-    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
-    FramePtr frame( (*self)->read() );
-    retVal = frame->rubyObject();
+    readAV();
+    if ( m_frame.get() )
+      retVal = m_frame->rubyObject();
   } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
@@ -314,6 +374,30 @@ VALUE AVInput::wrapFrameRate( VALUE rbSelf )
     AVRational frameRate = (*self)->frameRate();
     retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
                          INT2NUM( frameRate.num ), INT2NUM( frameRate.den ) );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapSampleRate( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    retVal = INT2NUM( (*self)->sampleRate() );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapChannels( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    retVal = INT2NUM( (*self)->channels() );
   } catch( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };

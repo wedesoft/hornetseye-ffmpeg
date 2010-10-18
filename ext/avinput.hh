@@ -43,12 +43,14 @@ public:
   AVInput( const std::string &mrl ) throw (Error);
   virtual ~AVInput(void);
   void close(void);
-  FramePtr read(void) throw (Error);
+  void readAV(void) throw (Error);
   bool status(void) const;
   int width(void) const throw (Error);
   int height(void) const throw (Error);
   AVRational timeBase(void) throw (Error);
   AVRational frameRate(void) throw (Error);
+  int sampleRate(void) throw (Error);
+  int channels(void) throw (Error);
   long long duration(void) throw (Error);
   long long startTime(void) throw (Error);
   void seek( long long timestamp ) throw (Error);
@@ -59,9 +61,12 @@ public:
   static VALUE wrapNew( VALUE rbClass, VALUE rbMRL );
   static VALUE wrapClose( VALUE rbSelf );
   static VALUE wrapRead( VALUE rbSelf );
+  VALUE wrapReadAV(void);
   static VALUE wrapStatus( VALUE rbSelf );
   static VALUE wrapTimeBase( VALUE rbSelf );
   static VALUE wrapFrameRate( VALUE rbSelf );
+  static VALUE wrapSampleRate( VALUE rbSelf );
+  static VALUE wrapChannels( VALUE rbSelf );
   static VALUE wrapDuration( VALUE rbSelf );
   static VALUE wrapStartTime( VALUE rbSelf );
   static VALUE wrapWidth( VALUE rbSelf );
@@ -79,10 +84,12 @@ protected:
   int m_audioStream;
   long long m_pts;
   struct SwsContext *m_swsContext;
-  AVFrame *m_frame;
+  AVFrame *m_avFrame;
   boost::shared_array< char > m_data;
+  FramePtr m_frame;
 };
 
 typedef boost::shared_ptr< AVInput > AVInputPtr;
 
 #endif
+

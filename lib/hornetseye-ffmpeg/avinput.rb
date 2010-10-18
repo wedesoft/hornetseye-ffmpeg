@@ -38,7 +38,10 @@ module Hornetseye
     alias_method :orig_read, :read
 
     def read
-      @frame = orig_read
+      begin
+        frame = orig_read
+      end until frame.is_a? Frame
+      @frame = frame
     end
 
     def pos=( timestamp )
