@@ -61,8 +61,8 @@ public:
   static void deleteRubyObject( void *ptr );
   static VALUE wrapNew( VALUE rbClass, VALUE rbMRL );
   static VALUE wrapClose( VALUE rbSelf );
-  static VALUE wrapRead( VALUE rbSelf );
-  VALUE wrapReadAV(void);
+  static VALUE wrapReadAV( VALUE rbSelf );
+  VALUE wrapReadAVInst(void);
   static VALUE wrapStatus( VALUE rbSelf );
   static VALUE wrapTimeBase( VALUE rbSelf );
   static VALUE wrapFrameRate( VALUE rbSelf );
@@ -86,7 +86,6 @@ protected:
   long long m_pts;
   struct SwsContext *m_swsContext;
   AVFrame *m_avFrame;
-  boost::shared_array< char > m_data;
   FramePtr m_videoFrame;
   SequencePtr m_audioFrame;
 };

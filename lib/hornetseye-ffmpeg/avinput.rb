@@ -25,7 +25,11 @@ module Hornetseye
 
       def new( mrl )
         retval = orig_new mrl
-        retval.instance_eval { @frame = nil }
+        retval.instance_eval do
+          @frame = nil
+          @video = Queue.new
+          @audio = Queue.new
+        end
         retval
       end
 
@@ -35,20 +39,34 @@ module Hornetseye
       [ width, height ]
     end
 
-    alias_method :orig_read, :read
+    def read_video
+      enqueue_frame while @video.empty?
+      @video.deq
+    end
 
-    def read
-      begin
-        frame = orig_read
-puts Sequence.import( SINT, frame.memory, frame.size / 2 ).inspect unless frame.is_a? Frame_
-      end until frame.is_a? Frame_
-      @frame = frame
+    alias_method :read, :read_video
+
+    def read_audio
+      enqueue_frame while @audio.empty?
+      @audio.deq
+    end
+
+    def enqueue_frame
+      frame = read_av
+      if frame.is_a? Frame_
+        @video.enq frame
+        @frame = frame
+      else
+        n = channels
+        target = Hornetseye::MultiArray SINT, n, frame.size / ( 2 * n )
+        @audio.enq target.new( frame.memory )
+      end
     end
 
     def pos=( timestamp )
       unless @frame
         begin
-          read
+          read_video
         rescue Exception
         end
       end

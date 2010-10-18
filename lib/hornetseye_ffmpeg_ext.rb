@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+require 'thread'
 require 'hornetseye_frame'
 require 'hornetseye-ffmpeg/avinput'
 require 'hornetseye-ffmpeg/avoutput'

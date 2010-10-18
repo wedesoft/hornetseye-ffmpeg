@@ -142,21 +142,18 @@ void AVInput::readAV(void) throw (Error)
         if ( packet.dts != AV_NOPTS_VALUE ) m_pts = packet.dts;
         av_free_packet( &packet );
         AVFrame picture;
-        m_data = boost::shared_array< char >( new char[ m_videoDec->width *
-                                                        m_videoDec->height *
-                                                        3 / 2 ] );
-        picture.data[0] = (uint8_t *)m_data.get();
-        picture.data[1] = (uint8_t *)m_data.get() +
+        m_videoFrame = FramePtr( new Frame( "YV12", m_videoDec->width,
+                                            m_videoDec->height ) );
+        picture.data[0] = (uint8_t *)m_videoFrame->data();
+        picture.data[1] = (uint8_t *)m_videoFrame->data() +
                           m_videoDec->width * m_videoDec->height * 5 / 4;
-        picture.data[2] = (uint8_t *)m_data.get() +
+        picture.data[2] = (uint8_t *)m_videoFrame->data() +
                           m_videoDec->width * m_videoDec->height;
         picture.linesize[0] = m_videoDec->width;
         picture.linesize[1] = m_videoDec->width / 2;
         picture.linesize[2] = m_videoDec->width / 2;
         sws_scale( m_swsContext, m_avFrame->data, m_avFrame->linesize, 0,
                    m_videoDec->height, picture.data, picture.linesize );
-        m_videoFrame = FramePtr( new Frame( "YV12", m_videoDec->width,
-                                            m_videoDec->height, m_data.get() ) );
         break;
       } else
         av_free_packet( &packet );
@@ -283,7 +280,7 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_const( cRubyClass, "AV_TIME_BASE", INT2NUM( AV_TIME_BASE ) );
   rb_define_const( cRubyClass, "AV_NOPTS_VALUE", LL2NUM( AV_NOPTS_VALUE ) );
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
-  rb_define_method( cRubyClass, "read", RUBY_METHOD_FUNC( wrapRead ), 0 );
+  rb_define_method( cRubyClass, "read_av", RUBY_METHOD_FUNC( wrapReadAV ), 0 );
   rb_define_method( cRubyClass, "status?", RUBY_METHOD_FUNC( wrapStatus ), 0 );
   rb_define_method( cRubyClass, "time_base", RUBY_METHOD_FUNC( wrapTimeBase ), 0 );
   rb_define_method( cRubyClass, "frame_rate", RUBY_METHOD_FUNC( wrapFrameRate ), 0 );
@@ -323,13 +320,13 @@ VALUE AVInput::wrapClose( VALUE rbSelf )
   return rbSelf;
 }
 
-VALUE AVInput::wrapRead( VALUE rbSelf )
+VALUE AVInput::wrapReadAV( VALUE rbSelf )
 {
   AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
-  return (*self)->wrapReadAV();
+  return (*self)->wrapReadAVInst();
 }
 
-VALUE AVInput::wrapReadAV(void)
+VALUE AVInput::wrapReadAVInst(void)
 {
   VALUE retVal = Qnil;
   try {
