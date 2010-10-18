@@ -40,7 +40,8 @@ module Hornetseye
     def read
       begin
         frame = orig_read
-      end until frame.is_a? Frame
+puts Sequence.import( SINT, frame.memory, frame.size / 2 ).inspect unless frame.is_a? Frame_
+      end until frame.is_a? Frame_
       @frame = frame
     end
 

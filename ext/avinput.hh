@@ -36,6 +36,7 @@ extern "C" {
 #include "rubyinc.hh"
 #include "error.hh"
 #include "frame.hh"
+#include "sequence.hh"
 
 class AVInput
 {
@@ -86,7 +87,8 @@ protected:
   struct SwsContext *m_swsContext;
   AVFrame *m_avFrame;
   boost::shared_array< char > m_data;
-  FramePtr m_frame;
+  FramePtr m_videoFrame;
+  SequencePtr m_audioFrame;
 };
 
 typedef boost::shared_ptr< AVInput > AVInputPtr;

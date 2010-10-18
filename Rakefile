@@ -207,7 +207,7 @@ begin
     s.has_rdoc = 'yard'
     s.extra_rdoc_files = []
     s.rdoc_options = %w{--no-private}
-    s.add_dependency %<malloc>, [ '~> 1.1' ]
+    s.add_dependency %<malloc>, [ '~> 1.2' ]
     s.add_dependency %<multiarray>, [ '~> 0.11' ]
     s.add_dependency %<hornetseye-frame>, [ '~> 0.3' ]
     s.add_development_dependency %q{rake}
@@ -230,7 +230,7 @@ begin
     s.has_rdoc = 'yard'
     s.extra_rdoc_files = []
     s.rdoc_options = %w{--no-private}
-    s.add_dependency %<malloc>, [ '~> 1.1' ]
+    s.add_dependency %<malloc>, [ '~> 1.2' ]
     s.add_dependency %<multiarray>, [ '~> 0.11' ]
     s.add_dependency %<hornetseye-frame>, [ '~> 0.3' ]
   end

@@ -95,7 +95,8 @@ AVInput::~AVInput(void)
 
 void AVInput::close(void)
 {
-  m_frame.reset();
+  m_audioFrame.reset();
+  m_videoFrame.reset();
   if ( m_avFrame ) {
     av_free( m_avFrame );
     m_avFrame = NULL;
@@ -125,6 +126,8 @@ void AVInput::close(void)
 
 void AVInput::readAV(void) throw (Error)
 {
+  m_audioFrame.reset();
+  m_videoFrame.reset();
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
   AVPacket packet;
@@ -152,16 +155,15 @@ void AVInput::readAV(void) throw (Error)
         picture.linesize[2] = m_videoDec->width / 2;
         sws_scale( m_swsContext, m_avFrame->data, m_avFrame->linesize, 0,
                    m_videoDec->height, picture.data, picture.linesize );
-        m_frame = FramePtr( new Frame( "YV12", m_videoDec->width, m_videoDec->height,
-                                       m_data.get() ) );
+        m_videoFrame = FramePtr( new Frame( "YV12", m_videoDec->width,
+                                            m_videoDec->height, m_data.get() ) );
         break;
       } else
         av_free_packet( &packet );
     } else if ( packet.stream_index == m_audioStream ) {
+      m_audioFrame.reset();
       unsigned char *data = packet.data;
       int size = packet.size;
-      unsigned char *frame = NULL;
-      int frameSize = 0;
       while ( size > 0 ) {
         short int buffer[ ( AVCODEC_MAX_AUDIO_FRAME_SIZE +
                             FF_INPUT_BUFFER_PADDING_SIZE ) / sizeof( short int ) ];
@@ -169,37 +171,31 @@ void AVInput::readAV(void) throw (Error)
         int len = avcodec_decode_audio2( m_audioDec, &buffer[0], &bufSize,
                                          data, size );
         if ( len < 0 ) {
-          if ( frame != NULL ) free( frame );
+          m_audioFrame.reset();
           ERRORMACRO( false, Error, , "Error decoding audio frame of video \""
                       << m_mrl << "\"" );
         };
         data += len;
         size -= len;
         if ( bufSize > 0 ) {
-          if ( frame != NULL ) {
-            frame = (unsigned char *)malloc( bufSize );
-            memcpy( frame, &buffer[0], bufSize );
-            frameSize = bufSize;
+          if ( m_audioFrame.get() ) {
+            SequencePtr extended( new Sequence( m_audioFrame->size() + bufSize ) );
+            memcpy( extended->data(), m_audioFrame->data(), m_audioFrame->size() );
+            memcpy( extended->data() + m_audioFrame->size(), &buffer[0], bufSize );
+            m_audioFrame = extended;
           } else {
-            unsigned char *extended = (unsigned char *)malloc( frameSize + bufSize );
-            memcpy( extended, frame, frameSize );
-            memcpy( extended + frameSize, &buffer[0], bufSize );
-            free( frame );
-            frame = extended;
-            frameSize += bufSize;
+            m_audioFrame = SequencePtr( new Sequence( bufSize ) );
+            memcpy( m_audioFrame->data(), &buffer[0], bufSize );
           };
         };
       };
       av_free_packet( &packet );
-      //if ( frame != NULL )
-      //  break;
-      if ( frame != NULL ) {
-        free( frame );
-      };
+      if ( m_audioFrame.get() ) break;
     } else
       av_free_packet( &packet );
   };
-  ERRORMACRO( m_frame.get(), Error, , "No more frames available" );
+  ERRORMACRO( m_videoFrame.get() || m_audioFrame.get(), Error, ,
+              "No more frames available" );
 }
 
 bool AVInput::status(void) const
@@ -338,8 +334,12 @@ VALUE AVInput::wrapReadAV(void)
   VALUE retVal = Qnil;
   try {
     readAV();
-    if ( m_frame.get() )
-      retVal = m_frame->rubyObject();
+    if ( m_videoFrame.get() )
+      retVal = m_videoFrame->rubyObject();
+    if ( m_audioFrame.get() )
+      retVal = m_audioFrame->rubyObject();
+    m_audioFrame.reset();
+    m_videoFrame.reset();
   } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
