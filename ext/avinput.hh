@@ -71,9 +71,12 @@ public:
 protected:
   std::string m_mrl;
   AVFormatContext *m_ic;
-  AVCodecContext *m_dec;
-  AVCodec *m_codec;
-  int m_idx;
+  AVCodecContext *m_videoDec;
+  AVCodecContext *m_audioDec;
+  AVCodec *m_videoCodec;
+  AVCodec *m_audioCodec;
+  int m_videoStream;
+  int m_audioStream;
   long long m_pts;
   struct SwsContext *m_swsContext;
   AVFrame *m_frame;

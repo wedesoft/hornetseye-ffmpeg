@@ -13,7 +13,10 @@
 
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+#undef NDEBUG
+#ifndef NDEBUG
 #include <iostream>
+#endif
 #include "avinput.hh"
 
 #if !defined(INT64_C)
@@ -27,8 +30,10 @@ using namespace std;
 VALUE AVInput::cRubyClass = Qnil;
 
 AVInput::AVInput( const string &mrl ) throw (Error):
-  m_mrl( mrl ), m_ic( NULL ), m_dec( NULL ), m_codec( NULL ), m_idx( -1 ),
-  m_pts( 0 ), m_swsContext( NULL ), m_frame( NULL )
+  m_mrl( mrl ), m_ic( NULL ), m_videoDec( NULL ), m_audioDec( NULL ),
+  m_videoCodec( NULL ), m_audioCodec( NULL ),
+  m_videoStream( -1 ), m_audioStream( -1 ), m_pts( 0 ),
+  m_swsContext( NULL ), m_frame( NULL )
 {
   try {
     int err = av_open_input_file( &m_ic, mrl.c_str(), NULL, 0, NULL );
@@ -37,23 +42,42 @@ AVInput::AVInput( const string &mrl ) throw (Error):
     err = av_find_stream_info( m_ic );
     ERRORMACRO( err >= 0, Error, , "Error finding stream info for file \""
                 << mrl << "\": " << strerror( -err ) );
-    for ( int i=0; i<m_ic->nb_streams; i++ )
-      if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO ) {
-        m_idx = i;
-        break;
-      };
-    ERRORMACRO( m_idx >= 0, Error, , "Could not find video stream in file \""
-                << mrl << "\"" );
-    m_dec = m_ic->streams[ m_idx ]->codec;
-    m_codec = avcodec_find_decoder( m_dec->codec_id );
-    ERRORMACRO( m_codec != NULL, Error, , "Could not find decoder for file \""
-                << mrl << "\"" );
-    err = avcodec_open( m_dec, m_codec );
-    ERRORMACRO( err >= 0, Error, , "Error opening codec for file \""
+    for ( int i=0; i<m_ic->nb_streams; i++ ) {
+      if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO )
+        m_videoStream = i;
+      if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO )
+        m_audioStream = i;
+    };
+#ifndef NDEBUG
+    cerr << "Video stream index is " << m_videoStream << endl;
+    cerr << "Audio stream index is " << m_audioStream << endl;
+#endif
+    ERRORMACRO( m_videoStream >= 0, Error, ,
+                "Could not find video stream in file \"" << mrl << "\"" );
+    m_videoDec = m_ic->streams[ m_videoStream ]->codec;
+    if ( m_audioStream >= 0 )
+      m_audioDec = m_ic->streams[ m_audioStream ]->codec;
+    m_videoCodec = avcodec_find_decoder( m_videoDec->codec_id );
+    ERRORMACRO( m_videoCodec != NULL, Error, , "Could not find video decoder for "
+                "file \"" << mrl << "\"" );
+    err = avcodec_open( m_videoDec, m_videoCodec );
+    if ( err < 0 ) m_videoCodec = NULL;
+    ERRORMACRO( err >= 0, Error, , "Error opening video codec for file \""
                 << mrl << "\": " << strerror( -err ) );
-    m_swsContext = sws_getContext( m_dec->width, m_dec->height, m_dec->pix_fmt,
-                                   m_dec->width, m_dec->height, PIX_FMT_YUV420P,
-                                   SWS_FAST_BILINEAR, 0, 0, 0 );
+    if ( m_audioDec != NULL ) {
+      m_audioCodec = avcodec_find_decoder( m_audioDec->codec_id );
+      ERRORMACRO( m_audioCodec != NULL, Error, , "Could not find audio decoder for "
+                  "file \"" << mrl << "\"" );
+      err = avcodec_open( m_audioDec, m_audioCodec );
+      if ( err < 0 ) m_audioCodec = NULL;
+      ERRORMACRO( err >= 0, Error, , "Error opening audio codec for file \""
+                  << mrl << "\": " << strerror( -err ) );
+    
+    };
+    m_swsContext = sws_getContext( m_videoDec->width, m_videoDec->height,
+                                   m_videoDec->pix_fmt,
+                                   m_videoDec->width, m_videoDec->height,
+                                   PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0 );
     m_frame = avcodec_alloc_frame();
     ERRORMACRO( m_frame, Error, , "Error allocating frame" );
   } catch ( Error &e ) {
@@ -77,13 +101,19 @@ void AVInput::close(void)
     sws_freeContext( m_swsContext );
     m_swsContext = NULL;
   };
-  if ( m_codec ) {
-    m_ic->streams[ m_idx ]->discard = AVDISCARD_ALL;
-    avcodec_close( m_dec );
-    m_codec = NULL;
+  if ( m_audioCodec ) {
+    avcodec_close( m_audioDec );
+    m_audioCodec = NULL;
   };
-  m_dec = NULL;
-  m_idx = -1;
+  if ( m_videoCodec ) {
+    m_ic->streams[ m_videoStream ]->discard = AVDISCARD_ALL;
+    avcodec_close( m_videoDec );
+    m_videoCodec = NULL;
+  };
+  m_audioDec = NULL;
+  m_videoDec = NULL;
+  m_audioStream = -1;
+  m_videoStream = -1;
   if ( m_ic ) {
     av_close_input_file( m_ic );
     m_ic = NULL;
@@ -97,35 +127,38 @@ FramePtr AVInput::read(void) throw (Error)
   FramePtr retVal;
   AVPacket packet;
   while ( av_read_frame( m_ic, &packet ) >= 0 ) {
-    if ( packet.stream_index == m_idx ) {
+    if ( packet.stream_index == m_videoStream ) {
       int frameFinished;
-      int err = avcodec_decode_video( m_dec, m_frame, &frameFinished,
+      int err = avcodec_decode_video( m_videoDec, m_frame, &frameFinished,
                                       packet.data, packet.size );
       ERRORMACRO( err >= 0, Error, ,
                   "Error decoding frame of video \"" << m_mrl << "\"" );
-
       if ( frameFinished ) {
         if ( packet.dts != AV_NOPTS_VALUE ) m_pts = packet.dts;
         av_free_packet( &packet );
         AVFrame picture;
-        m_data = boost::shared_array< char >( new char[ m_dec->width *
-                                                        m_dec->height *
+        m_data = boost::shared_array< char >( new char[ m_videoDec->width *
+                                                        m_videoDec->height *
                                                         3 / 2 ] );
         picture.data[0] = (uint8_t *)m_data.get();
         picture.data[1] = (uint8_t *)m_data.get() +
-                          m_dec->width * m_dec->height * 5 / 4;
-        picture.data[2] = (uint8_t *)m_data.get() + m_dec->width * m_dec->height;
-        picture.linesize[0] = m_dec->width;
-        picture.linesize[1] = m_dec->width / 2;
-        picture.linesize[2] = m_dec->width / 2;
+                          m_videoDec->width * m_videoDec->height * 5 / 4;
+        picture.data[2] = (uint8_t *)m_data.get() +
+                          m_videoDec->width * m_videoDec->height;
+        picture.linesize[0] = m_videoDec->width;
+        picture.linesize[1] = m_videoDec->width / 2;
+        picture.linesize[2] = m_videoDec->width / 2;
         sws_scale( m_swsContext, m_frame->data, m_frame->linesize, 0,
-                   m_dec->height, picture.data, picture.linesize );
-        retVal = FramePtr( new Frame( "YV12", m_dec->width, m_dec->height,
+                   m_videoDec->height, picture.data, picture.linesize );
+        retVal = FramePtr( new Frame( "YV12", m_videoDec->width, m_videoDec->height,
                                       m_data.get() ) );
         break;
-      };
-    };
-    av_free_packet( &packet );
+      } else
+        av_free_packet( &packet );
+    } else if ( packet.stream_index == m_audioStream ) {
+      av_free_packet( &packet );
+    } else
+      av_free_packet( &packet );
   };
   ERRORMACRO( retVal.get(), Error, , "No more frames available" );
   return retVal;
@@ -138,44 +171,44 @@ bool AVInput::status(void) const
 
 int AVInput::width(void) const throw (Error)
 {
-  ERRORMACRO( m_dec != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+  ERRORMACRO( m_videoDec != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_dec->width;
+  return m_videoDec->width;
 }
 
 int AVInput::height(void) const throw (Error)
 {
-  ERRORMACRO( m_dec != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+  ERRORMACRO( m_videoDec != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_dec->height;
+  return m_videoDec->height;
 }
 
 AVRational AVInput::timeBase(void) throw (Error)
 {
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_ic->streams[ m_idx ]->time_base;
+  return m_ic->streams[ m_videoStream ]->time_base;
 }
 
 AVRational AVInput::frameRate(void) throw (Error)
 {
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_ic->streams[ m_idx ]->r_frame_rate;
+  return m_ic->streams[ m_videoStream ]->r_frame_rate;
 }
 
 long long AVInput::duration(void) throw (Error)
 {
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_ic->streams[ m_idx ]->duration;
+  return m_ic->streams[ m_videoStream ]->duration;
 }
 
 long long AVInput::startTime(void) throw (Error)
 {
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_ic->streams[ m_idx ]->start_time;
+  return m_ic->streams[ m_videoStream ]->start_time;
 }
 
 void AVInput::seek( long long timestamp ) throw (Error)
@@ -184,7 +217,7 @@ void AVInput::seek( long long timestamp ) throw (Error)
               "Did you call \"close\" before?" );
   ERRORMACRO( av_seek_frame( m_ic, -1, timestamp, 0 ) >= 0,
               Error, , "Error seeking in video \"" << m_mrl << "\"" );
-  avcodec_flush_buffers( m_dec );
+  avcodec_flush_buffers( m_videoDec );
 }
 
 long long AVInput::pts(void) throw (Error)
