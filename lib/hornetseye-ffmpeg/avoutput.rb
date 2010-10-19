@@ -24,6 +24,9 @@ module Hornetseye
       alias_method :orig_new, :new
 
       def new( mrl, bitrate, width, height, frame_rate )
+        if frame_rate.is_a? Float
+          frame_rate = Rational( 90000, ( 90000 / frame_rate ).to_i )
+        end
         orig_new mrl, bitrate, width, height,
                  frame_rate.denominator, frame_rate.numerator
       end
