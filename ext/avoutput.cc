@@ -13,6 +13,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+#include <cerrno>
 #include "avoutput.hh"
 
 #if !defined(INT64_C)
@@ -62,11 +63,11 @@ AVOutput::AVOutput( const string &mrl, int bitrate, int width, int height,
     if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
       c->flags |= CODEC_FLAG_GLOBAL_HEADER;
     ERRORMACRO( av_set_parameters( m_oc, NULL ) >= 0, Error, ,
-                "Invalid output format parameters" );
+                "Invalid output format parameters: " << strerror( errno ) );
     AVCodec *codec = avcodec_find_encoder( c->codec_id );
     ERRORMACRO( codec != NULL, Error, , "Could not find codec " << c->codec_id );
     ERRORMACRO( avcodec_open( c, codec ) >= 0, Error, ,
-                "Error opening codec " << c->codec_id );
+                "Error opening codec " << c->codec_id << ": " << strerror( errno ) );
     m_video_codec_open = true;
     if ( !( m_oc->oformat->flags & AVFMT_RAWPICTURE ) ) {
       m_video_buf = (char *)av_malloc( VIDEO_BUF_SIZE );
@@ -79,7 +80,8 @@ AVOutput::AVOutput( const string &mrl, int bitrate, int width, int height,
       m_file_open = true;
     };
     ERRORMACRO( av_write_header( m_oc ) >= 0, Error, ,
-                "Error writing header of video \"" << mrl << "\"" );
+                "Error writing header of video \"" << mrl << "\": "
+                << strerror( errno ) );
     m_header_written = true;
     m_swsContext = sws_getContext( width, height, PIX_FMT_YUV420P,
                                    width, height, PIX_FMT_YUV420P,
@@ -184,7 +186,8 @@ void AVOutput::write( FramePtr frame ) throw (Error)
       packet.data = (uint8_t *)m_video_buf;
       packet.size = packetSize;
       ERRORMACRO( av_interleaved_write_frame( m_oc, &packet ) >= 0, Error, ,
-                  "Error writing frame of video \"" << m_mrl << "\"" );
+                  "Error writing frame of video \"" << m_mrl << "\": "
+                  << strerror( errno ) );
     };
   };
 }

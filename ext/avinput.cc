@@ -37,10 +37,10 @@ AVInput::AVInput( const string &mrl ) throw (Error):
   try {
     int err = av_open_input_file( &m_ic, mrl.c_str(), NULL, 0, NULL );
     ERRORMACRO( err >= 0, Error, , "Error opening file \"" << mrl << "\": "
-                << strerror( -err ) );
+                << strerror( errno ) );
     err = av_find_stream_info( m_ic );
     ERRORMACRO( err >= 0, Error, , "Error finding stream info for file \""
-                << mrl << "\": " << strerror( -err ) );
+                << mrl << "\": " << strerror( errno ) );
     for ( int i=0; i<m_ic->nb_streams; i++ ) {
       if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO )
         m_videoStream = i;
@@ -63,7 +63,7 @@ AVInput::AVInput( const string &mrl ) throw (Error):
     if ( err < 0 ) {
       m_videoCodec = NULL;
       ERRORMACRO( false, Error, , "Error opening video codec for file \""
-                  << mrl << "\": " << strerror( -err ) );
+                  << mrl << "\": " << strerror( errno ) );
     };
     if ( m_audioDec != NULL ) {
       m_audioCodec = avcodec_find_decoder( m_audioDec->codec_id );
@@ -73,7 +73,7 @@ AVInput::AVInput( const string &mrl ) throw (Error):
       if ( err < 0 ) {
         m_audioCodec = NULL;
         ERRORMACRO( false, Error, , "Error opening audio codec for file \""
-                    << mrl << "\": " << strerror( -err ) );
+                    << mrl << "\": " << strerror( errno ) );
       };
     };
     m_swsContext = sws_getContext( m_videoDec->width, m_videoDec->height,

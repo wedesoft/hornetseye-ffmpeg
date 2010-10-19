@@ -24,6 +24,7 @@ class Sequence
 {
 public:
   Sequence( int size );
+  Sequence( VALUE rbSequence ): m_sequence( rbSequence ) {}
   virtual ~Sequence(void) {}
   int size(void);
   char *data(void);
