@@ -29,6 +29,8 @@ module Hornetseye
           @frame = nil
           @video = Queue.new
           @audio = Queue.new
+          @video_pts = AV_NOPTS_VALUE
+          @audio_pts = AV_NOPTS_VALUE
         end
         retval
       end
@@ -41,25 +43,27 @@ module Hornetseye
 
     def read_video
       enqueue_frame while @video.empty?
-      @video.deq
+      frame, @video_pts = @video.deq
+      frame
     end
 
     alias_method :read, :read_video
 
     def read_audio
       enqueue_frame while @audio.empty?
-      @audio.deq
+      frame, @audio_pts = @audio.deq
+      frame
     end
 
     def enqueue_frame
       frame = read_av
       if frame.is_a? Frame_
-        @video.enq frame
+        @video.enq [ frame, video_pts ]
         @frame = frame
       else
         n = channels
         target = Hornetseye::MultiArray SINT, n, frame.size / ( 2 * n )
-        @audio.enq target.new( frame.memory )
+        @audio.enq [ target.new( frame.memory ), audio_pts ]
       end
     end
 
@@ -73,20 +77,26 @@ module Hornetseye
       seek timestamp * AV_TIME_BASE
     end
 
-    def pos
-      pts == AV_NOPTS_VALUE ? nil : pts * time_base
+    def video_pos
+      @video_pts == AV_NOPTS_VALUE ? nil : @video_pts * video_time_base
+    end
+
+    alias_method :pos, :video_pos
+
+    def audio_pos
+      @audio_pts == AV_NOPTS_VALUE ? nil : @audio_pts * audio_time_base
     end
 
     alias_method :orig_duration, :duration
 
     def duration
-      orig_duration == AV_NOPTS_VALUE ? nil : orig_duration * time_base
+      orig_duration == AV_NOPTS_VALUE ? nil : orig_duration * video_time_base
     end
 
     alias_method :orig_start_time, :start_time
 
-    def start_time
-      orig_start_time == AV_NOPTS_VALUE ? nil : orig_start_time * time_base
+    def video_start_time
+      orig_start_time == AV_NOPTS_VALUE ? nil : orig_start_time * video_time_base
     end
 
   end

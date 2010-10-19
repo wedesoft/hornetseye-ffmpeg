@@ -48,14 +48,16 @@ public:
   bool status(void) const;
   int width(void) const throw (Error);
   int height(void) const throw (Error);
-  AVRational timeBase(void) throw (Error);
+  AVRational videoTimeBase(void) throw (Error);
+  AVRational audioTimeBase(void) throw (Error);
   AVRational frameRate(void) throw (Error);
   int sampleRate(void) throw (Error);
   int channels(void) throw (Error);
   long long duration(void) throw (Error);
   long long startTime(void) throw (Error);
   void seek( long long timestamp ) throw (Error);
-  long long pts(void) throw (Error);
+  long long videoPts(void) throw (Error);
+  long long audioPts(void) throw (Error);
   static VALUE cRubyClass;
   static VALUE registerRubyClass( VALUE rbModule );
   static void deleteRubyObject( void *ptr );
@@ -64,7 +66,8 @@ public:
   static VALUE wrapReadAV( VALUE rbSelf );
   VALUE wrapReadAVInst(void);
   static VALUE wrapStatus( VALUE rbSelf );
-  static VALUE wrapTimeBase( VALUE rbSelf );
+  static VALUE wrapVideoTimeBase( VALUE rbSelf );
+  static VALUE wrapAudioTimeBase( VALUE rbSelf );
   static VALUE wrapFrameRate( VALUE rbSelf );
   static VALUE wrapSampleRate( VALUE rbSelf );
   static VALUE wrapChannels( VALUE rbSelf );
@@ -73,7 +76,8 @@ public:
   static VALUE wrapWidth( VALUE rbSelf );
   static VALUE wrapHeight( VALUE rbSelf );
   static VALUE wrapSeek( VALUE rbSelf, VALUE rbPos );
-  static VALUE wrapPTS( VALUE rbSelf );
+  static VALUE wrapVideoPTS( VALUE rbSelf );
+  static VALUE wrapAudioPTS( VALUE rbSelf );
 protected:
   std::string m_mrl;
   AVFormatContext *m_ic;
@@ -83,7 +87,8 @@ protected:
   AVCodec *m_audioCodec;
   int m_videoStream;
   int m_audioStream;
-  long long m_pts;
+  long long m_videoPts;
+  long long m_audioPts;
   struct SwsContext *m_swsContext;
   AVFrame *m_avFrame;
   FramePtr m_videoFrame;

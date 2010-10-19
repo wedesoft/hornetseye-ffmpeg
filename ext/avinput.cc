@@ -31,7 +31,7 @@ VALUE AVInput::cRubyClass = Qnil;
 AVInput::AVInput( const string &mrl ) throw (Error):
   m_mrl( mrl ), m_ic( NULL ), m_videoDec( NULL ), m_audioDec( NULL ),
   m_videoCodec( NULL ), m_audioCodec( NULL ),
-  m_videoStream( -1 ), m_audioStream( -1 ), m_pts( 0 ),
+  m_videoStream( -1 ), m_audioStream( -1 ), m_videoPts( 0 ), m_audioPts( 0 ),
   m_swsContext( NULL ), m_avFrame( NULL )
 {
   try {
@@ -131,6 +131,7 @@ void AVInput::readAV(void) throw (Error)
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
   AVPacket packet;
+  long long firstPacketPts = AV_NOPTS_VALUE;
   while ( av_read_frame( m_ic, &packet ) >= 0 ) {
     if ( packet.stream_index == m_videoStream ) {
       int frameFinished;
@@ -138,8 +139,12 @@ void AVInput::readAV(void) throw (Error)
                                       packet.data, packet.size );
       ERRORMACRO( err >= 0, Error, ,
                   "Error decoding video frame of video \"" << m_mrl << "\"" );
+      if ( firstPacketPts == AV_NOPTS_VALUE ) firstPacketPts = packet.pts;
       if ( frameFinished ) {
-        if ( packet.dts != AV_NOPTS_VALUE ) m_pts = packet.dts;
+        if ( packet.dts != AV_NOPTS_VALUE )
+          m_videoPts = packet.dts;
+        else
+          m_videoPts = firstPacketPts;
         av_free_packet( &packet );
         AVFrame picture;
         m_videoFrame = FramePtr( new Frame( "YV12", m_videoDec->width,
@@ -158,6 +163,7 @@ void AVInput::readAV(void) throw (Error)
       } else
         av_free_packet( &packet );
     } else if ( packet.stream_index == m_audioStream ) {
+      if ( packet.pts != AV_NOPTS_VALUE ) m_audioPts = packet.pts;
       m_audioFrame.reset();
       unsigned char *data = packet.data;
       int size = packet.size;
@@ -214,11 +220,18 @@ int AVInput::height(void) const throw (Error)
   return m_videoDec->height;
 }
 
-AVRational AVInput::timeBase(void) throw (Error)
+AVRational AVInput::videoTimeBase(void) throw (Error)
 {
-  ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+  ERRORMACRO( m_videoStream != -1, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
   return m_ic->streams[ m_videoStream ]->time_base;
+}
+
+AVRational AVInput::audioTimeBase(void) throw (Error)
+{
+  ERRORMACRO( m_audioStream != -1, Error, , "Audio \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_ic->streams[ m_audioStream ]->time_base;
 }
 
 AVRational AVInput::frameRate(void) throw (Error)
@@ -265,11 +278,18 @@ void AVInput::seek( long long timestamp ) throw (Error)
   avcodec_flush_buffers( m_videoDec );
 }
 
-long long AVInput::pts(void) throw (Error)
+long long AVInput::videoPts(void) throw (Error)
 {
-  ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+  ERRORMACRO( m_videoStream != -1, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_pts;
+  return m_videoPts;
+}
+
+long long AVInput::audioPts(void) throw (Error)
+{
+  ERRORMACRO( m_audioStream != -1, Error, , "Audio \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_audioPts;
 }
 
 VALUE AVInput::registerRubyClass( VALUE rbModule )
@@ -282,7 +302,10 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
   rb_define_method( cRubyClass, "read_av", RUBY_METHOD_FUNC( wrapReadAV ), 0 );
   rb_define_method( cRubyClass, "status?", RUBY_METHOD_FUNC( wrapStatus ), 0 );
-  rb_define_method( cRubyClass, "time_base", RUBY_METHOD_FUNC( wrapTimeBase ), 0 );
+  rb_define_method( cRubyClass, "video_time_base",
+                    RUBY_METHOD_FUNC( wrapVideoTimeBase ), 0 );
+  rb_define_method( cRubyClass, "audio_time_base",
+                    RUBY_METHOD_FUNC( wrapAudioTimeBase ), 0 );
   rb_define_method( cRubyClass, "frame_rate", RUBY_METHOD_FUNC( wrapFrameRate ), 0 );
   rb_define_method( cRubyClass, "sample_rate", RUBY_METHOD_FUNC( wrapSampleRate ), 0 );
   rb_define_method( cRubyClass, "channels", RUBY_METHOD_FUNC( wrapChannels ), 0 );
@@ -291,7 +314,8 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "width", RUBY_METHOD_FUNC( wrapWidth ), 0 );
   rb_define_method( cRubyClass, "height", RUBY_METHOD_FUNC( wrapHeight ), 0 );
   rb_define_method( cRubyClass, "seek", RUBY_METHOD_FUNC( wrapSeek ), 1 );
-  rb_define_method( cRubyClass, "pts", RUBY_METHOD_FUNC( wrapPTS ), 0 );
+  rb_define_method( cRubyClass, "video_pts", RUBY_METHOD_FUNC( wrapVideoPTS ), 0 );
+  rb_define_method( cRubyClass, "audio_pts", RUBY_METHOD_FUNC( wrapAudioPTS ), 0 );
 }
 
 void AVInput::deleteRubyObject( void *ptr )
@@ -349,14 +373,28 @@ VALUE AVInput::wrapStatus( VALUE rbSelf )
   return (*self)->status() ? Qtrue : Qfalse;
 }
 
-VALUE AVInput::wrapTimeBase( VALUE rbSelf )
+VALUE AVInput::wrapVideoTimeBase( VALUE rbSelf )
 {
   VALUE retVal = Qnil;
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
-    AVRational timeBase = (*self)->timeBase();
+    AVRational videoTimeBase = (*self)->videoTimeBase();
     retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
-                         INT2NUM( timeBase.num ), INT2NUM( timeBase.den ) );
+                         INT2NUM( videoTimeBase.num ), INT2NUM( videoTimeBase.den ) );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapAudioTimeBase( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    AVRational audioTimeBase = (*self)->audioTimeBase();
+    retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
+                         INT2NUM( audioTimeBase.num ), INT2NUM( audioTimeBase.den ) );
   } catch( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
@@ -461,12 +499,24 @@ VALUE AVInput::wrapSeek( VALUE rbSelf, VALUE rbPos )
   return retVal;
 }
 
-VALUE AVInput::wrapPTS( VALUE rbSelf )
+VALUE AVInput::wrapVideoPTS( VALUE rbSelf )
 {
   VALUE retVal = Qnil;
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
-    retVal = LL2NUM( (*self)->pts() );
+    retVal = LL2NUM( (*self)->videoPts() );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapAudioPTS( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    retVal = LL2NUM( (*self)->audioPts() );
   } catch( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
