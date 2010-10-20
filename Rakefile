@@ -113,7 +113,7 @@ file 'ext/config.h' do |t|
   elsif check_c_header 'ffmpeg/avformat.h'
     s << "#undef HAVE_LIBAVFORMAT_INCDIR\n"
   else
-    raise 'Cannot find swscale.h header file'
+    raise 'Cannot find avformat.h header file'
   end
   have_libavformat_alloc_context = check_program do |c|
     c.puts <<EOS
