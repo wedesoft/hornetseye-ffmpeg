@@ -33,7 +33,7 @@ if RbConfig::CONFIG[ 'rubyhdrdir' ]
   $CXXFLAGS = "#{$CXXFLAGS} -I#{RbConfig::CONFIG[ 'rubyhdrdir' ]} " +
              "-I#{RbConfig::CONFIG[ 'rubyhdrdir' ]}/#{RbConfig::CONFIG[ 'arch' ]}"
 else
-  $CXXFLAGS += "#{$CXXFLAGS} -I#{RbConfig::CONFIG[ 'archdir' ]}"
+  $CXXFLAGS = "#{$CXXFLAGS} -I#{RbConfig::CONFIG[ 'archdir' ]}"
 end
 $LIBRUBYARG = RbConfig::CONFIG[ 'LIBRUBYARG' ]
 $SITELIBDIR = RbConfig::CONFIG[ 'sitelibdir' ]
