@@ -51,6 +51,7 @@ public:
   AVRational videoTimeBase(void) throw (Error);
   AVRational audioTimeBase(void) throw (Error);
   AVRational frameRate(void) throw (Error);
+  AVRational aspectRatio(void) throw (Error);
   int sampleRate(void) throw (Error);
   int channels(void) throw (Error);
   long long duration(void) throw (Error);
@@ -69,6 +70,7 @@ public:
   static VALUE wrapVideoTimeBase( VALUE rbSelf );
   static VALUE wrapAudioTimeBase( VALUE rbSelf );
   static VALUE wrapFrameRate( VALUE rbSelf );
+  static VALUE wrapAspectRatio( VALUE rbSelf );
   static VALUE wrapSampleRate( VALUE rbSelf );
   static VALUE wrapChannels( VALUE rbSelf );
   static VALUE wrapDuration( VALUE rbSelf );

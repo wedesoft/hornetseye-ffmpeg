@@ -99,6 +99,12 @@ module Hornetseye
       orig_start_time == AV_NOPTS_VALUE ? nil : orig_start_time * video_time_base
     end
 
+    alias_method :orig_aspect_ratio, :aspect_ratio
+
+    def aspect_ratio
+      orig_aspect_ratio == 0 ? 1 : orig_aspect_ratio
+    end
+
   end
 
 end

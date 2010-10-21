@@ -241,6 +241,13 @@ AVRational AVInput::frameRate(void) throw (Error)
   return m_ic->streams[ m_videoStream ]->r_frame_rate;
 }
 
+AVRational AVInput::aspectRatio(void) throw (Error)
+{
+  ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_ic->streams[ m_videoStream ]->sample_aspect_ratio;
+}
+
 int AVInput::sampleRate(void) throw (Error)
 {
   ERRORMACRO( m_audioDec != NULL, Error, , "Audio \"" << m_mrl << "\" is not open. "
@@ -307,6 +314,8 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "audio_time_base",
                     RUBY_METHOD_FUNC( wrapAudioTimeBase ), 0 );
   rb_define_method( cRubyClass, "frame_rate", RUBY_METHOD_FUNC( wrapFrameRate ), 0 );
+  rb_define_method( cRubyClass, "aspect_ratio",
+                    RUBY_METHOD_FUNC( wrapAspectRatio ), 0 );
   rb_define_method( cRubyClass, "sample_rate", RUBY_METHOD_FUNC( wrapSampleRate ), 0 );
   rb_define_method( cRubyClass, "channels", RUBY_METHOD_FUNC( wrapChannels ), 0 );
   rb_define_method( cRubyClass, "duration", RUBY_METHOD_FUNC( wrapDuration ), 0 );
@@ -409,6 +418,20 @@ VALUE AVInput::wrapFrameRate( VALUE rbSelf )
     AVRational frameRate = (*self)->frameRate();
     retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
                          INT2NUM( frameRate.num ), INT2NUM( frameRate.den ) );
+  } catch( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapAspectRatio( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    AVRational aspectRatio = (*self)->aspectRatio();
+    retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
+                         INT2NUM( aspectRatio.num ), INT2NUM( aspectRatio.den ) );
   } catch( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
