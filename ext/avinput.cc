@@ -16,6 +16,7 @@
 #ifndef NDEBUG
 #include <iostream>
 #endif
+#include <malloc.h>
 #include "avinput.hh"
 
 #if !defined(INT64_C)
@@ -168,12 +169,13 @@ void AVInput::readAV(void) throw (Error)
       unsigned char *data = packet.data;
       int size = packet.size;
       while ( size > 0 ) {
-        short int buffer[ ( AVCODEC_MAX_AUDIO_FRAME_SIZE +
-                            FF_INPUT_BUFFER_PADDING_SIZE ) / sizeof( short int ) ];
-        int bufSize = sizeof( buffer );
-        int len = avcodec_decode_audio2( m_audioDec, &buffer[0], &bufSize,
-                                         data, size );
+        short int *buffer =
+          (short int *)memalign( 16, AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 2 );
+        buffer[ AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 4 - 1 ] = '\000';
+        int bufSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 2;
+        int len = avcodec_decode_audio2( m_audioDec, buffer, &bufSize, data, size );
         if ( len < 0 ) {
+          free( buffer );
           m_audioFrame.reset();
           ERRORMACRO( false, Error, , "Error decoding audio frame of video \""
                       << m_mrl << "\"" );
@@ -184,13 +186,14 @@ void AVInput::readAV(void) throw (Error)
           if ( m_audioFrame.get() ) {
             SequencePtr extended( new Sequence( m_audioFrame->size() + bufSize ) );
             memcpy( extended->data(), m_audioFrame->data(), m_audioFrame->size() );
-            memcpy( extended->data() + m_audioFrame->size(), &buffer[0], bufSize );
+            memcpy( extended->data() + m_audioFrame->size(), buffer, bufSize );
             m_audioFrame = extended;
           } else {
             m_audioFrame = SequencePtr( new Sequence( bufSize ) );
-            memcpy( m_audioFrame->data(), &buffer[0], bufSize );
+            memcpy( m_audioFrame->data(), buffer, bufSize );
           };
         };
+        free( buffer );
       };
       av_free_packet( &packet );
       if ( m_audioFrame.get() ) break;
