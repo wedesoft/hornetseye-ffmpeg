@@ -131,7 +131,7 @@ void AVOutput::close(void)
     m_video_buf = NULL;
   };
   if ( m_oc ) {
-    for ( int i = 0; i < m_oc->nb_streams; i++ ) {
+    for ( unsigned int i = 0; i < m_oc->nb_streams; i++ ) {
       av_freep( &m_oc->streams[i]->codec );
       av_freep( &m_oc->streams[i] );
     };

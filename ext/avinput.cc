@@ -42,7 +42,7 @@ AVInput::AVInput( const string &mrl ) throw (Error):
     err = av_find_stream_info( m_ic );
     ERRORMACRO( err >= 0, Error, , "Error finding stream info for file \""
                 << mrl << "\": " << strerror( errno ) );
-    for ( int i=0; i<m_ic->nb_streams; i++ ) {
+    for ( unsigned int i=0; i<m_ic->nb_streams; i++ ) {
       if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO )
         m_videoStream = i;
       if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO )
