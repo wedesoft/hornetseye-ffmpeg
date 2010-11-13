@@ -41,9 +41,10 @@ extern "C" {
 class AVOutput
 {
 public:
-  AVOutput( const std::string &mrl, int videoBitRate, 
-            int width, int height, int timeBaseNum, int timeBaseDen,
-            int audioBitRate, int sampleRate, int channels ) throw (Error);
+  AVOutput( const std::string &mrl, int videoBitRate, int width, int height,
+            int timeBaseNum, int timeBaseDen, enum CodecID videoCodec,
+            int audioBitRate, int sampleRate, int channels,
+            enum CodecID audioCodec ) throw (Error);
   virtual ~AVOutput(void);
   void close(void);
   int frameSize(void) throw (Error);
@@ -55,7 +56,8 @@ public:
   static void deleteRubyObject( void *ptr );
   static VALUE wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbBitRate, VALUE rbWidth,
                         VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen,
-                        VALUE rbAudioBitRate, VALUE rbSampleRate, VALUE rbChannels );
+                        VALUE rbVideoCodec, VALUE rbAudioBitRate, VALUE rbSampleRate,
+                        VALUE rbChannels, VALUE rbAudioCodec );
   static VALUE wrapClose( VALUE rbSelf );
   static VALUE wrapFrameSize( VALUE rbSelf );
   static VALUE wrapChannels( VALUE rbSelf );
