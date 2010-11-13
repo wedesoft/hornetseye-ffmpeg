@@ -14,6 +14,9 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 #include <cerrno>
+#ifndef NDEBUG
+#include <iostream>
+#endif
 #include "avoutput.hh"
 
 #if !defined(INT64_C)
@@ -26,11 +29,13 @@ using namespace std;
 
 VALUE AVOutput::cRubyClass = Qnil;
 
-AVOutput::AVOutput( const string &mrl, int bitrate, int width, int height,
-                    int timeBaseNum, int timeBaseDen ) throw (Error):
-  m_mrl( mrl ), m_oc( NULL ), m_video_st( NULL ), m_video_codec_open( false ),
-  m_video_buf( NULL ), m_file_open( false ), m_header_written( false ),
-  m_swsContext( NULL ), m_frame( NULL )
+AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
+                    int timeBaseNum, int timeBaseDen, int audioBitRate,
+                    int sampleRate, int channels ) throw (Error):
+  m_mrl( mrl ), m_oc( NULL ), m_video_st( NULL ), m_audio_st( NULL),
+  m_video_codec_open( false ), m_audio_codec_open( false ), m_video_buf( NULL ),
+  m_file_open( false ), m_header_written( false ), m_swsContext( NULL ),
+  m_frame( NULL )
 {
   try {
     AVOutputFormat *format;
@@ -53,7 +58,7 @@ AVOutput::AVOutput( const string &mrl, int bitrate, int width, int height,
     AVCodecContext *c = m_video_st->codec;
     c->codec_id = format->video_codec;
     c->codec_type = CODEC_TYPE_VIDEO;
-    c->bit_rate = bitrate;
+    c->bit_rate = videoBitRate;
     c->width = width;
     c->height = height;
     c->time_base.num = timeBaseNum;
@@ -62,17 +67,42 @@ AVOutput::AVOutput( const string &mrl, int bitrate, int width, int height,
     c->pix_fmt = PIX_FMT_YUV420P;
     if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
       c->flags |= CODEC_FLAG_GLOBAL_HEADER;
+    if ( channels > 0 ) {
+      m_audio_st = av_new_stream( m_oc, 0 );
+      ERRORMACRO( m_audio_st != NULL, Error, , "Could not allocate audio stream" );
+      AVCodecContext *c = m_audio_st->codec;
+      c->codec_id = format->audio_codec;
+      c->codec_type = CODEC_TYPE_AUDIO;
+      c->bit_rate = audioBitRate;
+      c->sample_rate = sampleRate;
+      c->channels = channels;
+    };
     ERRORMACRO( av_set_parameters( m_oc, NULL ) >= 0, Error, ,
                 "Invalid output format parameters: " << strerror( errno ) );
     AVCodec *codec = avcodec_find_encoder( c->codec_id );
-    ERRORMACRO( codec != NULL, Error, , "Could not find codec " << c->codec_id );
+    ERRORMACRO( codec != NULL, Error, , "Could not find video codec "
+                << c->codec_id );
     ERRORMACRO( avcodec_open( c, codec ) >= 0, Error, ,
-                "Error opening codec " << c->codec_id << ": " << strerror( errno ) );
+                "Error opening video codec " << c->codec_id << ": "
+                << strerror( errno ) );
     m_video_codec_open = true;
     if ( !( m_oc->oformat->flags & AVFMT_RAWPICTURE ) ) {
       m_video_buf = (char *)av_malloc( VIDEO_BUF_SIZE );
       ERRORMACRO( m_video_buf != NULL, Error, ,
                   "Error allocating video output buffer" );
+    };
+    if ( channels > 0 ) {
+      AVCodecContext *c = m_audio_st->codec;
+      AVCodec *codec = avcodec_find_encoder( c->codec_id );
+      ERRORMACRO( codec != NULL, Error, , "Could not find audio codec "
+                  << c->codec_id );
+      ERRORMACRO( avcodec_open( c, codec ) >= 0, Error, ,
+                  "Error opening audio codec " << c->codec_id << ": "
+                  << strerror( errno ) );
+      m_audio_codec_open = true;
+#ifndef NDEBUG
+      cerr << "audio frame size = " << c->frame_size << " samples" << endl;
+#endif
     };
     if ( !( format->flags & AVFMT_NOFILE ) ) {
       ERRORMACRO( url_fopen( &m_oc->pb, mrl.c_str(), URL_WRONLY ) >= 0, Error, ,
@@ -120,6 +150,12 @@ void AVOutput::close(void)
     av_write_trailer( m_oc );
     m_header_written = false;
   };
+  if ( m_audio_st ) {
+    if ( m_audio_codec_open ) {
+      avcodec_close( m_audio_st->codec );
+      m_audio_codec_open = false;
+    };
+  };
   if ( m_video_st ) {
     if ( m_video_codec_open ) {
       avcodec_close( m_video_st->codec );
@@ -135,6 +171,7 @@ void AVOutput::close(void)
       av_freep( &m_oc->streams[i]->codec );
       av_freep( &m_oc->streams[i] );
     };
+    m_audio_st = NULL;
     m_video_st = NULL;
     if ( m_file_open ) {
 #ifdef HAVE_BYTEIO_PTR
@@ -196,7 +233,7 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
 {
   cRubyClass = rb_define_class_under( rbModule, "AVOutput", rb_cObject );
   rb_define_singleton_method( cRubyClass, "new",
-                              RUBY_METHOD_FUNC( wrapNew ), 6 );
+                              RUBY_METHOD_FUNC( wrapNew ), 9 );
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
   rb_define_method( cRubyClass, "write", RUBY_METHOD_FUNC( wrapWrite ), 1 );
 }
@@ -207,15 +244,17 @@ void AVOutput::deleteRubyObject( void *ptr )
 }
 
 VALUE AVOutput::wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbBitRate, VALUE rbWidth,
-                         VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen )
+                         VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen,
+                         VALUE rbAudioBitRate, VALUE rbSampleRate, VALUE rbChannels )
 {
   VALUE retVal = Qnil;
   try {
     rb_check_type( rbMRL, T_STRING );
     AVOutputPtr ptr( new AVOutput( StringValuePtr( rbMRL ), NUM2INT( rbBitRate ),
                                    NUM2INT( rbWidth ), NUM2INT( rbHeight ),
-                                   NUM2INT( rbTimeBaseNum ),
-                                   NUM2INT( rbTimeBaseDen ) ) );
+                                   NUM2INT( rbTimeBaseNum ), NUM2INT( rbTimeBaseDen ),
+                                   NUM2INT( rbAudioBitRate ), NUM2INT( rbSampleRate ),
+                                   NUM2INT( rbChannels ) ) );
     retVal = Data_Wrap_Struct( rbClass, 0, deleteRubyObject,
                                new AVOutputPtr( ptr ) );
   } catch ( exception &e ) {

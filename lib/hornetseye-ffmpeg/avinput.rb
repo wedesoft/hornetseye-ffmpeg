@@ -23,8 +23,8 @@ module Hornetseye
 
       alias_method :orig_new, :new
 
-      def new( mrl )
-        retval = orig_new mrl
+      def new( mrl, audio = true )
+        retval = orig_new mrl, audio
         retval.instance_eval do
           @frame = nil
           @video = Queue.new

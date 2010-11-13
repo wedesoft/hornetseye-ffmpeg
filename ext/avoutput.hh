@@ -40,8 +40,9 @@ extern "C" {
 class AVOutput
 {
 public:
-  AVOutput( const std::string &mrl, int bitrate, 
-            int width, int height, int timeBaseNum, int timeBaseDen ) throw (Error);
+  AVOutput( const std::string &mrl, int videoBitRate, 
+            int width, int height, int timeBaseNum, int timeBaseDen,
+            int audioBitRate, int sampleRate, int channels ) throw (Error);
   virtual ~AVOutput(void);
   void close(void);
   void write( FramePtr frame ) throw (Error);
@@ -49,14 +50,17 @@ public:
   static VALUE registerRubyClass( VALUE rbModule );
   static void deleteRubyObject( void *ptr );
   static VALUE wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbBitRate, VALUE rbWidth,
-                        VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen );
+                        VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen,
+                        VALUE rbAudioBitRate, VALUE rbSampleRate, VALUE rbChannels );
   static VALUE wrapClose( VALUE rbSelf );
   static VALUE wrapWrite( VALUE rbSelf, VALUE rbFrame );
 protected:
   std::string m_mrl;
   AVFormatContext *m_oc;
   AVStream *m_video_st;
+  AVStream *m_audio_st;
   bool m_video_codec_open;
+  bool m_audio_codec_open;
   char *m_video_buf;
   bool m_file_open;
   bool m_header_written;

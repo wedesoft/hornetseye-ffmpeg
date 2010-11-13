@@ -29,7 +29,7 @@ using namespace std;
 
 VALUE AVInput::cRubyClass = Qnil;
 
-AVInput::AVInput( const string &mrl ) throw (Error):
+AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
   m_mrl( mrl ), m_ic( NULL ), m_videoDec( NULL ), m_audioDec( NULL ),
   m_videoCodec( NULL ), m_audioCodec( NULL ),
   m_videoStream( -1 ), m_audioStream( -1 ), m_videoPts( 0 ), m_audioPts( 0 ),
@@ -45,8 +45,8 @@ AVInput::AVInput( const string &mrl ) throw (Error):
     for ( unsigned int i=0; i<m_ic->nb_streams; i++ ) {
       if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO )
         m_videoStream = i;
-      if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO )
-        m_audioStream = i;
+      if ( audio && m_ic->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO )
+          m_audioStream = i;
     };
 #ifndef NDEBUG
     cerr << "Video stream index is " << m_videoStream << endl;
@@ -223,6 +223,11 @@ int AVInput::height(void) const throw (Error)
   return m_videoDec->height;
 }
 
+bool AVInput::hasAudio(void) const
+{
+  return m_audioStream != -1;
+}
+
 AVRational AVInput::videoTimeBase(void) throw (Error)
 {
   ERRORMACRO( m_videoStream != -1, Error, , "Video \"" << m_mrl << "\" is not open. "
@@ -306,7 +311,7 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
 {
   cRubyClass = rb_define_class_under( rbModule, "AVInput", rb_cObject );
   rb_define_singleton_method( cRubyClass, "new",
-                              RUBY_METHOD_FUNC( wrapNew ), 1 );
+                              RUBY_METHOD_FUNC( wrapNew ), 2 );
   rb_define_const( cRubyClass, "AV_TIME_BASE", INT2NUM( AV_TIME_BASE ) );
   rb_define_const( cRubyClass, "AV_NOPTS_VALUE", LL2NUM( AV_NOPTS_VALUE ) );
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
@@ -325,6 +330,7 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "start_time", RUBY_METHOD_FUNC( wrapStartTime ), 0 );
   rb_define_method( cRubyClass, "width", RUBY_METHOD_FUNC( wrapWidth ), 0 );
   rb_define_method( cRubyClass, "height", RUBY_METHOD_FUNC( wrapHeight ), 0 );
+  rb_define_method( cRubyClass, "has_audio?", RUBY_METHOD_FUNC( wrapHasAudio ), 0 );
   rb_define_method( cRubyClass, "seek", RUBY_METHOD_FUNC( wrapSeek ), 1 );
   rb_define_method( cRubyClass, "video_pts", RUBY_METHOD_FUNC( wrapVideoPTS ), 0 );
   rb_define_method( cRubyClass, "audio_pts", RUBY_METHOD_FUNC( wrapAudioPTS ), 0 );
@@ -335,12 +341,12 @@ void AVInput::deleteRubyObject( void *ptr )
   delete (AVInputPtr *)ptr;
 }
 
-VALUE AVInput::wrapNew( VALUE rbClass, VALUE rbMRL )
+VALUE AVInput::wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbAudio )
 {
   VALUE retVal = Qnil;
   try {
     rb_check_type( rbMRL, T_STRING );
-    AVInputPtr ptr( new AVInput( StringValuePtr( rbMRL ) ) );
+    AVInputPtr ptr( new AVInput( StringValuePtr( rbMRL ), rbAudio == Qtrue ) );
     retVal = Data_Wrap_Struct( rbClass, 0, deleteRubyObject,
                                new AVInputPtr( ptr ) );
   } catch ( exception &e ) {
@@ -393,7 +399,7 @@ VALUE AVInput::wrapVideoTimeBase( VALUE rbSelf )
     AVRational videoTimeBase = (*self)->videoTimeBase();
     retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
                          INT2NUM( videoTimeBase.num ), INT2NUM( videoTimeBase.den ) );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -407,7 +413,7 @@ VALUE AVInput::wrapAudioTimeBase( VALUE rbSelf )
     AVRational audioTimeBase = (*self)->audioTimeBase();
     retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
                          INT2NUM( audioTimeBase.num ), INT2NUM( audioTimeBase.den ) );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -421,7 +427,7 @@ VALUE AVInput::wrapFrameRate( VALUE rbSelf )
     AVRational frameRate = (*self)->frameRate();
     retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
                          INT2NUM( frameRate.num ), INT2NUM( frameRate.den ) );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -435,7 +441,7 @@ VALUE AVInput::wrapAspectRatio( VALUE rbSelf )
     AVRational aspectRatio = (*self)->aspectRatio();
     retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
                          INT2NUM( aspectRatio.num ), INT2NUM( aspectRatio.den ) );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -447,7 +453,7 @@ VALUE AVInput::wrapSampleRate( VALUE rbSelf )
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     retVal = INT2NUM( (*self)->sampleRate() );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -459,7 +465,7 @@ VALUE AVInput::wrapChannels( VALUE rbSelf )
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     retVal = INT2NUM( (*self)->channels() );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -471,7 +477,7 @@ VALUE AVInput::wrapDuration( VALUE rbSelf )
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     retVal = LL2NUM( (*self)->duration() );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -483,7 +489,7 @@ VALUE AVInput::wrapStartTime( VALUE rbSelf )
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     retVal = LL2NUM( (*self)->startTime() );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -495,7 +501,7 @@ VALUE AVInput::wrapWidth( VALUE rbSelf )
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     retVal = INT2NUM( (*self)->width() );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -507,10 +513,16 @@ VALUE AVInput::wrapHeight( VALUE rbSelf )
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     retVal = INT2NUM( (*self)->height() );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
+}
+
+VALUE AVInput::wrapHasAudio( VALUE rbSelf )
+{
+  AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+  return (*self)->hasAudio() ? Qtrue : Qfalse;
 }
 
 VALUE AVInput::wrapSeek( VALUE rbSelf, VALUE rbPos )
@@ -519,7 +531,7 @@ VALUE AVInput::wrapSeek( VALUE rbSelf, VALUE rbPos )
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     (*self)->seek( NUM2LL( rbPos ) );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -531,7 +543,7 @@ VALUE AVInput::wrapVideoPTS( VALUE rbSelf )
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     retVal = LL2NUM( (*self)->videoPts() );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
@@ -543,7 +555,7 @@ VALUE AVInput::wrapAudioPTS( VALUE rbSelf )
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
     retVal = LL2NUM( (*self)->audioPts() );
-  } catch( exception &e ) {
+  } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;

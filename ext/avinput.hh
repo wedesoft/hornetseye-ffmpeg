@@ -41,13 +41,14 @@ extern "C" {
 class AVInput
 {
 public:
-  AVInput( const std::string &mrl ) throw (Error);
+  AVInput( const std::string &mrl, bool audio = true ) throw (Error);
   virtual ~AVInput(void);
   void close(void);
   void readAV(void) throw (Error);
   bool status(void) const;
   int width(void) const throw (Error);
   int height(void) const throw (Error);
+  bool hasAudio(void) const;
   AVRational videoTimeBase(void) throw (Error);
   AVRational audioTimeBase(void) throw (Error);
   AVRational frameRate(void) throw (Error);
@@ -62,7 +63,7 @@ public:
   static VALUE cRubyClass;
   static VALUE registerRubyClass( VALUE rbModule );
   static void deleteRubyObject( void *ptr );
-  static VALUE wrapNew( VALUE rbClass, VALUE rbMRL );
+  static VALUE wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbAudio );
   static VALUE wrapClose( VALUE rbSelf );
   static VALUE wrapReadAV( VALUE rbSelf );
   VALUE wrapReadAVInst(void);
@@ -77,6 +78,7 @@ public:
   static VALUE wrapStartTime( VALUE rbSelf );
   static VALUE wrapWidth( VALUE rbSelf );
   static VALUE wrapHeight( VALUE rbSelf );
+  static VALUE wrapHasAudio( VALUE rbSelf );
   static VALUE wrapSeek( VALUE rbSelf, VALUE rbPos );
   static VALUE wrapVideoPTS( VALUE rbSelf );
   static VALUE wrapAudioPTS( VALUE rbSelf );
