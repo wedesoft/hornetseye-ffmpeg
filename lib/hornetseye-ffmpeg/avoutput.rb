@@ -29,13 +29,20 @@ module Hornetseye
         if frame_rate.is_a? Float
           frame_rate = Rational( 90000, ( 90000 / frame_rate ).to_i )
         end
-        orig_new mrl, video_bit_rate, width, height,
-                 frame_rate.denominator, frame_rate.numerator,
-                 video_codec || CODEC_ID_NONE,
-                 have_audio ? audio_bit_rate : 0,
-                 have_audio ? sample_rate : 0,
-                 have_audio ? channels : 0,
-                 audio_codec || CODEC_ID_NONE
+        retval = orig_new mrl, video_bit_rate, width, height,
+                          frame_rate.denominator, frame_rate.numerator,
+                          video_codec || CODEC_ID_NONE,
+                          have_audio ? audio_bit_rate : 0,
+                          have_audio ? sample_rate : 0,
+                          have_audio ? channels : 0,
+                          audio_codec || CODEC_ID_NONE
+        if have_audio
+          retval.instance_eval do
+            @audio_buffer = Hornetseye::MultiArray( SINT, channels, frame_size ).new
+            @audio_samples = 0
+          end
+        end
+        retval
       end
 
     end
@@ -51,12 +58,37 @@ module Hornetseye
     alias_method :orig_write_audio, :write_audio
 
     def write_audio( frame )
-      if frame.shape != [ channels, frame_size ]
-        raise "Audio frame must have #{channels} channels and #{frame_size} " +
-              "samples (but had #{frame.shape[0]} channels and #{frame.shape[1]} " +
-              "samples)"
+      unless frame.typecode == SINT
+        raise "Audio frame must have elements of type SINT (but elements were of " +
+              "type #{frame.typecode})"
       end
-      orig_write_audio Sequence( UBYTE, frame.storage_size ).new( frame.memory )
+      unless frame.dimension == 2
+        raise "Audio frame must have 2 dimensions (but had #{frame.dimensions})"
+      end
+      unless frame.shape.first == channels
+        raise "Audio frame must have #{channels} channels " +
+              "(but had #{frame.shape.first})"
+      end
+      frame_type = Hornetseye::Sequence UBYTE, frame_size * 2 * channels
+      remaining = frame
+      while @audio_samples + remaining.shape.last >= frame_size
+        if @audio_samples > 0
+          @audio_buffer[ @audio_samples ... frame_size ] =
+            remaining[ 0 ... frame_size - @audio_samples ]
+          orig_write_audio frame_type.new( @audio_buffer.memory )
+          remaining = remaining[ 0 ... channels,
+                                 frame_size - @audio_samples ... remaining.shape.last ]
+          @audio_samples = 0
+        else
+          orig_write_audio frame_type.new( remaining.memory )
+          remaining = remaining[ 0 ... channels, frame_size ... remaining.shape.last ]
+        end
+      end
+      if remaining.shape.last > 0
+        @audio_buffer[ 0 ... channels, 0 ... remaining.shape.last ] = remaining
+        @audio_samples = remaining.shape.last
+      end
+      frame
     end
 
   end
