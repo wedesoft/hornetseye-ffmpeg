@@ -23,7 +23,8 @@
 #define INT64_C(c) c ## LL
 #endif
 
-#define VIDEO_BUF_SIZE 200000
+#define VIDEO_BUF_SIZE ( 16 * FF_MIN_BUFFER_SIZE )
+#define AUDIO_BUF_SIZE ( 2 * FF_MIN_BUFFER_SIZE )
 
 using namespace std;
 
@@ -34,8 +35,8 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
                     int sampleRate, int channels ) throw (Error):
   m_mrl( mrl ), m_oc( NULL ), m_video_st( NULL ), m_audio_st( NULL),
   m_video_codec_open( false ), m_audio_codec_open( false ), m_video_buf( NULL ),
-  m_file_open( false ), m_header_written( false ), m_swsContext( NULL ),
-  m_frame( NULL )
+  m_audio_buf( NULL ), m_file_open( false ), m_header_written( false ),
+  m_swsContext( NULL ), m_frame( NULL )
 {
   try {
     AVOutputFormat *format;
@@ -100,6 +101,9 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
                   "Error opening audio codec " << c->codec_id << ": "
                   << strerror( errno ) );
       m_audio_codec_open = true;
+      m_audio_buf = (char *)av_malloc( AUDIO_BUF_SIZE );
+      ERRORMACRO( m_audio_buf != NULL, Error, ,
+                  "Error allocating audio output buffer" );
 #ifndef NDEBUG
       cerr << "audio frame size = " << c->frame_size << " samples" << endl;
 #endif
@@ -162,6 +166,10 @@ void AVOutput::close(void)
       m_video_codec_open = false;
     };
   };
+  if ( m_audio_buf ) {
+    av_free( m_audio_buf );
+    m_audio_buf = NULL;
+  };
   if ( m_video_buf ) {
     av_free( m_video_buf );
     m_video_buf = NULL;
@@ -186,7 +194,7 @@ void AVOutput::close(void)
   };
 }
 
-void AVOutput::write( FramePtr frame ) throw (Error)
+void AVOutput::writeVideo( FramePtr frame ) throw (Error)
 {
   ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
@@ -210,7 +218,7 @@ void AVOutput::write( FramePtr frame ) throw (Error)
                c->height, m_frame->data, m_frame->linesize );
     int packetSize = avcodec_encode_video( c, (uint8_t *)m_video_buf,
                                            VIDEO_BUF_SIZE, m_frame );
-    ERRORMACRO( packetSize >= 0, Error, , "Error encoding frame" );
+    ERRORMACRO( packetSize >= 0, Error, , "Error encoding video frame" );
     if ( packetSize > 0 ) {
       AVPacket packet;
       av_init_packet( &packet );
@@ -223,9 +231,56 @@ void AVOutput::write( FramePtr frame ) throw (Error)
       packet.data = (uint8_t *)m_video_buf;
       packet.size = packetSize;
       ERRORMACRO( av_interleaved_write_frame( m_oc, &packet ) >= 0, Error, ,
-                  "Error writing frame of video \"" << m_mrl << "\": "
+                  "Error writing video frame of video \"" << m_mrl << "\": "
                   << strerror( errno ) );
     };
+  };
+}
+
+int AVOutput::frameSize(void) throw (Error)
+{
+  ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  ERRORMACRO( m_audio_st != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
+              "an audio stream" );
+  return m_audio_st->codec->frame_size;
+}
+
+int AVOutput::channels(void) throw (Error)
+{
+  ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  ERRORMACRO( m_audio_st != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
+              "an audio stream" );
+  return m_audio_st->codec->channels;
+}
+
+void AVOutput::writeAudio( SequencePtr frame ) throw (Error)
+{
+  ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  ERRORMACRO( m_audio_st != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
+              "an audio stream" );
+  AVCodecContext *c = m_audio_st->codec;
+  ERRORMACRO( frame->size() == c->frame_size * 2 * c->channels, Error, , "Size of "
+              "audio frame is " << frame->size() << " bytes (but should be "
+              << c->frame_size * 2 * c->channels << " bytes)" );
+  int packetSize = avcodec_encode_audio( c, (uint8_t *)m_audio_buf,
+                                         AUDIO_BUF_SIZE, (short *)frame->data() );
+  ERRORMACRO( packetSize >= 0, Error, , "Error encoding audio frame" );
+  if ( packetSize > 0 ) {
+    AVPacket packet;
+    av_init_packet( &packet );
+    if ( c->coded_frame && c->coded_frame->pts != AV_NOPTS_VALUE )
+      packet.pts = av_rescale_q( c->coded_frame->pts, c->time_base,
+                                 m_audio_st->time_base );
+    packet.flags |= PKT_FLAG_KEY;
+    packet.stream_index = m_audio_st->index;
+    packet.data = (uint8_t *)m_audio_buf;
+    packet.size = packetSize;
+    ERRORMACRO( av_interleaved_write_frame( m_oc, &packet ) >= 0, Error, ,
+                "Error writing audio frame of video \"" << m_mrl << "\": "
+                << strerror( errno ) );
   };
 }
 
@@ -235,7 +290,10 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
   rb_define_singleton_method( cRubyClass, "new",
                               RUBY_METHOD_FUNC( wrapNew ), 9 );
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
-  rb_define_method( cRubyClass, "write", RUBY_METHOD_FUNC( wrapWrite ), 1 );
+  rb_define_method( cRubyClass, "frame_size", RUBY_METHOD_FUNC( wrapFrameSize ), 0 );
+  rb_define_method( cRubyClass, "channels", RUBY_METHOD_FUNC( wrapChannels ), 0 );
+  rb_define_method( cRubyClass, "write_video", RUBY_METHOD_FUNC( wrapWriteVideo ), 1 );
+  rb_define_method( cRubyClass, "write_audio", RUBY_METHOD_FUNC( wrapWriteAudio ), 1 );
 }
 
 void AVOutput::deleteRubyObject( void *ptr )
@@ -270,14 +328,51 @@ VALUE AVOutput::wrapClose( VALUE rbSelf )
   return rbSelf;
 }
 
-VALUE AVOutput::wrapWrite( VALUE rbSelf, VALUE rbFrame )
+VALUE AVOutput::wrapFrameSize( VALUE rbSelf )
+{
+  VALUE rbRetVal = Qnil;
+  try {
+    AVOutputPtr *self; Data_Get_Struct( rbSelf, AVOutputPtr, self );
+    rbRetVal = INT2NUM( (*self)->frameSize() );
+  } catch ( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return rbRetVal;
+}
+
+VALUE AVOutput::wrapChannels( VALUE rbSelf )
+{
+  VALUE rbRetVal = Qnil;
+  try {
+    AVOutputPtr *self; Data_Get_Struct( rbSelf, AVOutputPtr, self );
+    rbRetVal = INT2NUM( (*self)->channels() );
+  } catch ( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return rbRetVal;
+}
+
+VALUE AVOutput::wrapWriteVideo( VALUE rbSelf, VALUE rbFrame )
 {
   try {
     AVOutputPtr *self; Data_Get_Struct( rbSelf, AVOutputPtr, self );
     FramePtr frame( new Frame( rbFrame ) );
-    (*self)->write( frame );
+    (*self)->writeVideo( frame );
   } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return rbFrame;
 }
+
+VALUE AVOutput::wrapWriteAudio( VALUE rbSelf, VALUE rbFrame )
+{
+  try {
+    AVOutputPtr *self; Data_Get_Struct( rbSelf, AVOutputPtr, self );
+    SequencePtr frame( new Sequence( rbFrame ) );
+    (*self)->writeAudio( frame );
+  } catch ( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return rbFrame;
+}
+

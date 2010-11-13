@@ -150,14 +150,19 @@ void AVInput::readAV(void) throw (Error)
         AVFrame picture;
         m_videoFrame = FramePtr( new Frame( "YV12", m_videoDec->width,
                                             m_videoDec->height ) );
+        int
+          width   = m_videoDec->width,
+          height  = m_videoDec->height,
+          width2  = ( width  + 1 ) / 2,
+          height2 = ( height + 1 ) / 2,
+          widtha  = ( width  + 7 ) & ~0x7,
+          width2a = ( width2 + 7 ) & ~0x7;
         picture.data[0] = (uint8_t *)m_videoFrame->data();
-        picture.data[1] = (uint8_t *)m_videoFrame->data() +
-                          m_videoDec->width * m_videoDec->height * 5 / 4;
-        picture.data[2] = (uint8_t *)m_videoFrame->data() +
-                          m_videoDec->width * m_videoDec->height;
-        picture.linesize[0] = m_videoDec->width;
-        picture.linesize[1] = m_videoDec->width / 2;
-        picture.linesize[2] = m_videoDec->width / 2;
+        picture.data[2] = (uint8_t *)m_videoFrame->data() + widtha * height;
+        picture.data[1] = (uint8_t *)picture.data[2] + width2a * height2;
+        picture.linesize[0] = widtha;
+        picture.linesize[1] = width2a;
+        picture.linesize[2] = width2a;
         sws_scale( m_swsContext, m_avFrame->data, m_avFrame->linesize, 0,
                    m_videoDec->height, picture.data, picture.linesize );
         break;

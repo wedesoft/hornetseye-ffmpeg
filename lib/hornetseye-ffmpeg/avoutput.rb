@@ -37,6 +37,25 @@ module Hornetseye
 
     end
 
+    alias_method :write, :write_video
+
+    alias_method :orig_write_video, :write_video
+
+    def write_video( frame )
+      orig_write_video frame.to_yv12
+    end
+
+    alias_method :orig_write_audio, :write_audio
+
+    def write_audio( frame )
+      if frame.shape != [ channels, frame_size ]
+        raise "Audio frame must have #{channels} channels and #{frame_size} " +
+              "samples (but had #{frame.shape[0]} channels and #{frame.shape[1]} " +
+              "samples)"
+      end
+      orig_write_audio Sequence( UBYTE, frame.storage_size ).new( frame.memory )
+    end
+
   end
 
 end

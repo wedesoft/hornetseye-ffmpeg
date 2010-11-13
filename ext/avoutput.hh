@@ -36,6 +36,7 @@ extern "C" {
 #include "rubyinc.hh"
 #include "error.hh"
 #include "frame.hh"
+#include "sequence.hh"
 
 class AVOutput
 {
@@ -45,7 +46,10 @@ public:
             int audioBitRate, int sampleRate, int channels ) throw (Error);
   virtual ~AVOutput(void);
   void close(void);
-  void write( FramePtr frame ) throw (Error);
+  int frameSize(void) throw (Error);
+  int channels(void) throw (Error);
+  void writeVideo( FramePtr frame ) throw (Error);
+  void writeAudio( SequencePtr frame ) throw (Error);
   static VALUE cRubyClass;
   static VALUE registerRubyClass( VALUE rbModule );
   static void deleteRubyObject( void *ptr );
@@ -53,7 +57,10 @@ public:
                         VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen,
                         VALUE rbAudioBitRate, VALUE rbSampleRate, VALUE rbChannels );
   static VALUE wrapClose( VALUE rbSelf );
-  static VALUE wrapWrite( VALUE rbSelf, VALUE rbFrame );
+  static VALUE wrapFrameSize( VALUE rbSelf );
+  static VALUE wrapChannels( VALUE rbSelf );
+  static VALUE wrapWriteVideo( VALUE rbSelf, VALUE rbFrame );
+  static VALUE wrapWriteAudio( VALUE rbSelf, VALUE rbFrame );
 protected:
   std::string m_mrl;
   AVFormatContext *m_oc;
@@ -62,6 +69,7 @@ protected:
   bool m_video_codec_open;
   bool m_audio_codec_open;
   char *m_video_buf;
+  char *m_audio_buf;
   bool m_file_open;
   bool m_header_written;
   struct SwsContext *m_swsContext;
