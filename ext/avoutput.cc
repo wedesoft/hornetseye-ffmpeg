@@ -252,6 +252,20 @@ void AVOutput::writeVideo( FramePtr frame ) throw (Error)
   };
 }
 
+AVRational AVOutput::videoTimeBase(void) throw (Error)
+{
+  ERRORMACRO( m_video_st != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_video_st->time_base;
+}
+
+AVRational AVOutput::audioTimeBase(void) throw (Error)
+{
+  ERRORMACRO( m_audio_st != NULL, Error, , "Audio \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_audio_st->time_base;
+}
+
 int AVOutput::frameSize(void) throw (Error)
 {
   ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
@@ -775,6 +789,10 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
   rb_define_const( cRubyClass, "CODEC_ID_MP1",
                    INT2FIX( CODEC_ID_MP1 ) );
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
+  rb_define_method( cRubyClass, "video_time_base",
+                    RUBY_METHOD_FUNC( wrapVideoTimeBase ), 0 );
+  rb_define_method( cRubyClass, "audio_time_base",
+                    RUBY_METHOD_FUNC( wrapAudioTimeBase ), 0 );
   rb_define_method( cRubyClass, "frame_size", RUBY_METHOD_FUNC( wrapFrameSize ), 0 );
   rb_define_method( cRubyClass, "channels", RUBY_METHOD_FUNC( wrapChannels ), 0 );
   rb_define_method( cRubyClass, "write_video", RUBY_METHOD_FUNC( wrapWriteVideo ), 1 );
@@ -817,6 +835,34 @@ VALUE AVOutput::wrapClose( VALUE rbSelf )
   AVOutputPtr *self; Data_Get_Struct( rbSelf, AVOutputPtr, self );
   (*self)->close();
   return rbSelf;
+}
+
+VALUE AVOutput::wrapVideoTimeBase( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVOutputPtr *self; Data_Get_Struct( rbSelf, AVOutputPtr, self );
+    AVRational videoTimeBase = (*self)->videoTimeBase();
+    retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
+                         INT2NUM( videoTimeBase.num ), INT2NUM( videoTimeBase.den ) );
+  } catch ( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVOutput::wrapAudioTimeBase( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVOutputPtr *self; Data_Get_Struct( rbSelf, AVOutputPtr, self );
+    AVRational audioTimeBase = (*self)->audioTimeBase();
+    retVal = rb_funcall( rb_cObject, rb_intern( "Rational" ), 2,
+                         INT2NUM( audioTimeBase.num ), INT2NUM( audioTimeBase.den ) );
+  } catch ( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
 }
 
 VALUE AVOutput::wrapFrameSize( VALUE rbSelf )

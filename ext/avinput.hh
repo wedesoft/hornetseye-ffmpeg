@@ -56,7 +56,8 @@ public:
   int sampleRate(void) throw (Error);
   int channels(void) throw (Error);
   long long duration(void) throw (Error);
-  long long startTime(void) throw (Error);
+  long long videoStartTime(void) throw (Error);
+  long long audioStartTime(void) throw (Error);
   void seek( long long timestamp ) throw (Error);
   long long videoPts(void) throw (Error);
   long long audioPts(void) throw (Error);
@@ -75,7 +76,8 @@ public:
   static VALUE wrapSampleRate( VALUE rbSelf );
   static VALUE wrapChannels( VALUE rbSelf );
   static VALUE wrapDuration( VALUE rbSelf );
-  static VALUE wrapStartTime( VALUE rbSelf );
+  static VALUE wrapVideoStartTime( VALUE rbSelf );
+  static VALUE wrapAudioStartTime( VALUE rbSelf );
   static VALUE wrapWidth( VALUE rbSelf );
   static VALUE wrapHeight( VALUE rbSelf );
   static VALUE wrapHasAudio( VALUE rbSelf );

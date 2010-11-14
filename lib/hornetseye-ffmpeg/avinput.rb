@@ -93,10 +93,18 @@ module Hornetseye
       orig_duration == AV_NOPTS_VALUE ? nil : orig_duration * video_time_base
     end
 
-    alias_method :orig_start_time, :start_time
+    alias_method :orig_video_start_time, :video_start_time
 
     def video_start_time
-      orig_start_time == AV_NOPTS_VALUE ? nil : orig_start_time * video_time_base
+      retval = orig_video_start_time
+      retval == AV_NOPTS_VALUE ? nil : retval * video_time_base
+    end
+
+    alias_method :orig_audio_start_time, :audio_start_time
+
+    def audio_start_time
+      retval = orig_audio_start_time
+      retval == AV_NOPTS_VALUE ? nil : retval * audio_time_base
     end
 
     alias_method :orig_aspect_ratio, :aspect_ratio

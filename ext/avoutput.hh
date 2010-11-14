@@ -48,6 +48,8 @@ public:
             enum CodecID audioCodec ) throw (Error);
   virtual ~AVOutput(void);
   void close(void);
+  AVRational videoTimeBase(void) throw (Error);
+  AVRational audioTimeBase(void) throw (Error);
   int frameSize(void) throw (Error);
   int channels(void) throw (Error);
   void writeVideo( FramePtr frame ) throw (Error);
@@ -61,6 +63,8 @@ public:
                         VALUE rbVideoCodec, VALUE rbAudioBitRate, VALUE rbSampleRate,
                         VALUE rbChannels, VALUE rbAudioCodec );
   static VALUE wrapClose( VALUE rbSelf );
+  static VALUE wrapVideoTimeBase( VALUE rbSelf );
+  static VALUE wrapAudioTimeBase( VALUE rbSelf );
   static VALUE wrapFrameSize( VALUE rbSelf );
   static VALUE wrapChannels( VALUE rbSelf );
   static VALUE wrapWriteVideo( VALUE rbSelf, VALUE rbFrame );

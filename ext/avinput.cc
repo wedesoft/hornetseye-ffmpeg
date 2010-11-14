@@ -282,11 +282,18 @@ long long AVInput::duration(void) throw (Error)
   return m_ic->streams[ m_videoStream ]->duration;
 }
 
-long long AVInput::startTime(void) throw (Error)
+long long AVInput::videoStartTime(void) throw (Error)
 {
-  ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+  ERRORMACRO( m_videoStream != -1, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
   return m_ic->streams[ m_videoStream ]->start_time;
+}
+
+long long AVInput::audioStartTime(void) throw (Error)
+{
+  ERRORMACRO( m_audioStream != -1, Error, , "Audio \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_ic->streams[ m_audioStream ]->start_time;
 }
 
 void AVInput::seek( long long timestamp ) throw (Error)
@@ -332,7 +339,10 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "sample_rate", RUBY_METHOD_FUNC( wrapSampleRate ), 0 );
   rb_define_method( cRubyClass, "channels", RUBY_METHOD_FUNC( wrapChannels ), 0 );
   rb_define_method( cRubyClass, "duration", RUBY_METHOD_FUNC( wrapDuration ), 0 );
-  rb_define_method( cRubyClass, "start_time", RUBY_METHOD_FUNC( wrapStartTime ), 0 );
+  rb_define_method( cRubyClass, "video_start_time",
+                    RUBY_METHOD_FUNC( wrapVideoStartTime ), 0 );
+  rb_define_method( cRubyClass, "audio_start_time",
+                    RUBY_METHOD_FUNC( wrapAudioStartTime ), 0 );
   rb_define_method( cRubyClass, "width", RUBY_METHOD_FUNC( wrapWidth ), 0 );
   rb_define_method( cRubyClass, "height", RUBY_METHOD_FUNC( wrapHeight ), 0 );
   rb_define_method( cRubyClass, "has_audio?", RUBY_METHOD_FUNC( wrapHasAudio ), 0 );
@@ -488,12 +498,24 @@ VALUE AVInput::wrapDuration( VALUE rbSelf )
   return retVal;
 }
 
-VALUE AVInput::wrapStartTime( VALUE rbSelf )
+VALUE AVInput::wrapVideoStartTime( VALUE rbSelf )
 {
   VALUE retVal = Qnil;
   try {
     AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
-    retVal = LL2NUM( (*self)->startTime() );
+    retVal = LL2NUM( (*self)->videoStartTime() );
+  } catch ( exception &e ) {
+    rb_raise( rb_eRuntimeError, "%s", e.what() );
+  };
+  return retVal;
+}
+
+VALUE AVInput::wrapAudioStartTime( VALUE rbSelf )
+{
+  VALUE retVal = Qnil;
+  try {
+    AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+    retVal = LL2NUM( (*self)->audioStartTime() );
   } catch ( exception &e ) {
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
