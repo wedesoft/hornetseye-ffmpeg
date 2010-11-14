@@ -48,13 +48,13 @@ module Hornetseye
 
     end
 
-    alias_method :write, :write_video
-
     alias_method :orig_write_video, :write_video
 
     def write_video( frame )
       orig_write_video frame.to_yv12
     end
+
+    alias_method :write, :write_video
 
     alias_method :orig_write_audio, :write_audio
 
@@ -86,8 +86,9 @@ module Hornetseye
         end
       end
       if remaining.shape.last > 0
-        @audio_buffer[ 0 ... channels, 0 ... remaining.shape.last ] = remaining
-        @audio_samples = remaining.shape.last
+        @audio_buffer[ 0 ... channels, @audio_samples ... @audio_samples +
+                       remaining.shape.last ] = remaining
+        @audio_samples += remaining.shape.last
       end
       frame
     end
