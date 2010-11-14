@@ -35,9 +35,9 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
                     int aspectRatioDen, enum CodecID videoCodec,
                     int audioBitRate, int sampleRate, int channels,
                     enum CodecID audioCodec ) throw (Error):
-  m_mrl( mrl ), m_oc( NULL ), m_video_st( NULL ), m_audio_st( NULL),
-  m_video_codec_open( false ), m_audio_codec_open( false ), m_video_buf( NULL ),
-  m_audio_buf( NULL ), m_file_open( false ), m_header_written( false ),
+  m_mrl( mrl ), m_oc( NULL ), m_videoStream( NULL ), m_audioStream( NULL),
+  m_videoCodecOpen( false ), m_audioCodecOpen( false ), m_videoBuf( NULL ),
+  m_audioBuf( NULL ), m_fileOpen( false ), m_headerWritten( false ),
   m_swsContext( NULL ), m_frame( NULL )
 {
   try {
@@ -56,11 +56,11 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     snprintf( m_oc->filename, sizeof( m_oc->filename ), "%s", mrl.c_str() );
     ERRORMACRO( format->video_codec != CODEC_ID_NONE, Error, ,
                 "Output format does not support video" );
-    m_video_st = av_new_stream( m_oc, 0 );
-    ERRORMACRO( m_video_st != NULL, Error, , "Could not allocate video stream" );
-    m_video_st->sample_aspect_ratio.num = aspectRatioNum;
-    m_video_st->sample_aspect_ratio.den = aspectRatioDen;
-    AVCodecContext *c = m_video_st->codec;
+    m_videoStream = av_new_stream( m_oc, 0 );
+    ERRORMACRO( m_videoStream != NULL, Error, , "Could not allocate video stream" );
+    m_videoStream->sample_aspect_ratio.num = aspectRatioNum;
+    m_videoStream->sample_aspect_ratio.den = aspectRatioDen;
+    AVCodecContext *c = m_videoStream->codec;
     c->codec_id = videoCodec != CODEC_ID_NONE ? videoCodec : format->video_codec;
     c->codec_type = CODEC_TYPE_VIDEO;
     c->bit_rate = videoBitRate;
@@ -75,9 +75,9 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
       c->flags |= CODEC_FLAG_GLOBAL_HEADER;
     if ( channels > 0 ) {
-      m_audio_st = av_new_stream( m_oc, 0 );
-      ERRORMACRO( m_audio_st != NULL, Error, , "Could not allocate audio stream" );
-      AVCodecContext *c = m_audio_st->codec;
+      m_audioStream = av_new_stream( m_oc, 0 );
+      ERRORMACRO( m_audioStream != NULL, Error, , "Could not allocate audio stream" );
+      AVCodecContext *c = m_audioStream->codec;
       c->codec_id = audioCodec != CODEC_ID_NONE ? audioCodec : format->audio_codec;
       c->codec_type = CODEC_TYPE_AUDIO;
       c->bit_rate = audioBitRate;
@@ -94,23 +94,23 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     ERRORMACRO( avcodec_open( c, codec ) >= 0, Error, ,
                 "Error opening video codec \"" << codec->name << "\": "
                 << strerror( errno ) );
-    m_video_codec_open = true;
+    m_videoCodecOpen = true;
     if ( !( m_oc->oformat->flags & AVFMT_RAWPICTURE ) ) {
-      m_video_buf = (char *)av_malloc( VIDEO_BUF_SIZE );
-      ERRORMACRO( m_video_buf != NULL, Error, ,
+      m_videoBuf = (char *)av_malloc( VIDEO_BUF_SIZE );
+      ERRORMACRO( m_videoBuf != NULL, Error, ,
                   "Error allocating video output buffer" );
     };
     if ( channels > 0 ) {
-      AVCodecContext *c = m_audio_st->codec;
+      AVCodecContext *c = m_audioStream->codec;
       AVCodec *codec = avcodec_find_encoder( c->codec_id );
       ERRORMACRO( codec != NULL, Error, , "Could not find audio codec "
                   << c->codec_id );
       ERRORMACRO( avcodec_open( c, codec ) >= 0, Error, ,
                   "Error opening audio codec \"" << codec->name << "\": "
                   << strerror( errno ) );
-      m_audio_codec_open = true;
-      m_audio_buf = (char *)av_malloc( AUDIO_BUF_SIZE );
-      ERRORMACRO( m_audio_buf != NULL, Error, ,
+      m_audioCodecOpen = true;
+      m_audioBuf = (char *)av_malloc( AUDIO_BUF_SIZE );
+      ERRORMACRO( m_audioBuf != NULL, Error, ,
                   "Error allocating audio output buffer" );
 #ifndef NDEBUG
       cerr << "audio frame size = " << c->frame_size << " samples" << endl;
@@ -119,12 +119,12 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     if ( !( format->flags & AVFMT_NOFILE ) ) {
       ERRORMACRO( url_fopen( &m_oc->pb, mrl.c_str(), URL_WRONLY ) >= 0, Error, ,
                   "Could not open \"" << mrl << "\"" );
-      m_file_open = true;
+      m_fileOpen = true;
     };
     ERRORMACRO( av_write_header( m_oc ) >= 0, Error, ,
                 "Error writing header of video \"" << mrl << "\": "
                 << strerror( errno ) );
-    m_header_written = true;
+    m_headerWritten = true;
     m_swsContext = sws_getContext( width, height, PIX_FMT_YUV420P,
                                    width, height, PIX_FMT_YUV420P,
                                    SWS_FAST_BILINEAR, 0, 0, 0 );
@@ -158,44 +158,44 @@ void AVOutput::close(void)
     sws_freeContext( m_swsContext );
     m_swsContext = NULL;
   };
-  if ( m_header_written ) {
+  if ( m_headerWritten ) {
     av_write_trailer( m_oc );
-    m_header_written = false;
+    m_headerWritten = false;
   };
-  if ( m_audio_st ) {
-    if ( m_audio_codec_open ) {
-      avcodec_close( m_audio_st->codec );
-      m_audio_codec_open = false;
+  if ( m_audioStream ) {
+    if ( m_audioCodecOpen ) {
+      avcodec_close( m_audioStream->codec );
+      m_audioCodecOpen = false;
     };
   };
-  if ( m_video_st ) {
-    if ( m_video_codec_open ) {
-      avcodec_close( m_video_st->codec );
-      m_video_codec_open = false;
+  if ( m_videoStream ) {
+    if ( m_videoCodecOpen ) {
+      avcodec_close( m_videoStream->codec );
+      m_videoCodecOpen = false;
     };
   };
-  if ( m_audio_buf ) {
-    av_free( m_audio_buf );
-    m_audio_buf = NULL;
+  if ( m_audioBuf ) {
+    av_free( m_audioBuf );
+    m_audioBuf = NULL;
   };
-  if ( m_video_buf ) {
-    av_free( m_video_buf );
-    m_video_buf = NULL;
+  if ( m_videoBuf ) {
+    av_free( m_videoBuf );
+    m_videoBuf = NULL;
   };
   if ( m_oc ) {
     for ( unsigned int i = 0; i < m_oc->nb_streams; i++ ) {
       av_freep( &m_oc->streams[i]->codec );
       av_freep( &m_oc->streams[i] );
     };
-    m_audio_st = NULL;
-    m_video_st = NULL;
-    if ( m_file_open ) {
+    m_audioStream = NULL;
+    m_videoStream = NULL;
+    if ( m_fileOpen ) {
 #ifdef HAVE_BYTEIO_PTR
       url_fclose( m_oc->pb );
 #else
       url_fclose( &m_oc->pb );
 #endif
-      m_file_open = false;
+      m_fileOpen = false;
     };
     av_free( m_oc );
     m_oc = NULL;
@@ -206,15 +206,15 @@ void AVOutput::writeVideo( FramePtr frame ) throw (Error)
 {
   ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  ERRORMACRO( m_video_st->codec->width == frame->width() &&
-              m_video_st->codec->height == frame->height(), Error, ,
+  ERRORMACRO( m_videoStream->codec->width == frame->width() &&
+              m_videoStream->codec->height == frame->height(), Error, ,
               "Resolution of frame is " << frame->width() << 'x'
               << frame->height() << " but video resolution is "
-              << m_video_st->codec->width << 'x' << m_video_st->codec->height );
+              << m_videoStream->codec->width << 'x' << m_videoStream->codec->height );
   if ( m_oc->oformat->flags & AVFMT_RAWPICTURE ) {
     ERRORMACRO( false, Error, , "Raw picture encoding not implemented yet" );
   } else {
-    AVCodecContext *c = m_video_st->codec;
+    AVCodecContext *c = m_videoStream->codec;
     AVFrame picture;
     int
       width   = c->width,
@@ -231,7 +231,7 @@ void AVOutput::writeVideo( FramePtr frame ) throw (Error)
     picture.linesize[2] = width2a;
     sws_scale( m_swsContext, picture.data, picture.linesize, 0,
                c->height, m_frame->data, m_frame->linesize );
-    int packetSize = avcodec_encode_video( c, (uint8_t *)m_video_buf,
+    int packetSize = avcodec_encode_video( c, (uint8_t *)m_videoBuf,
                                            VIDEO_BUF_SIZE, m_frame );
     ERRORMACRO( packetSize >= 0, Error, , "Error encoding video frame" );
     if ( packetSize > 0 ) {
@@ -239,11 +239,11 @@ void AVOutput::writeVideo( FramePtr frame ) throw (Error)
       av_init_packet( &packet );
       if ( c->coded_frame->pts != AV_NOPTS_VALUE )
         packet.pts = av_rescale_q( c->coded_frame->pts, c->time_base,
-                                   m_video_st->time_base );
+                                   m_videoStream->time_base );
       if ( c->coded_frame->key_frame )
         packet.flags |= PKT_FLAG_KEY;
-      packet.stream_index = m_video_st->index;
-      packet.data = (uint8_t *)m_video_buf;
+      packet.stream_index = m_videoStream->index;
+      packet.data = (uint8_t *)m_videoBuf;
       packet.size = packetSize;
       ERRORMACRO( av_interleaved_write_frame( m_oc, &packet ) >= 0, Error, ,
                   "Error writing video frame of video \"" << m_mrl << "\": "
@@ -254,47 +254,47 @@ void AVOutput::writeVideo( FramePtr frame ) throw (Error)
 
 AVRational AVOutput::videoTimeBase(void) throw (Error)
 {
-  ERRORMACRO( m_video_st != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+  ERRORMACRO( m_videoStream != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_video_st->time_base;
+  return m_videoStream->time_base;
 }
 
 AVRational AVOutput::audioTimeBase(void) throw (Error)
 {
-  ERRORMACRO( m_audio_st != NULL, Error, , "Audio \"" << m_mrl << "\" is not open. "
+  ERRORMACRO( m_audioStream != NULL, Error, , "Audio \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_audio_st->time_base;
+  return m_audioStream->time_base;
 }
 
 int AVOutput::frameSize(void) throw (Error)
 {
   ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  ERRORMACRO( m_audio_st != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
+  ERRORMACRO( m_audioStream != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
               "an audio stream" );
-  return m_audio_st->codec->frame_size;
+  return m_audioStream->codec->frame_size;
 }
 
 int AVOutput::channels(void) throw (Error)
 {
   ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  ERRORMACRO( m_audio_st != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
+  ERRORMACRO( m_audioStream != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
               "an audio stream" );
-  return m_audio_st->codec->channels;
+  return m_audioStream->codec->channels;
 }
 
 void AVOutput::writeAudio( SequencePtr frame ) throw (Error)
 {
   ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  ERRORMACRO( m_audio_st != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
+  ERRORMACRO( m_audioStream != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
               "an audio stream" );
-  AVCodecContext *c = m_audio_st->codec;
+  AVCodecContext *c = m_audioStream->codec;
   ERRORMACRO( frame->size() == c->frame_size * 2 * c->channels, Error, , "Size of "
               "audio frame is " << frame->size() << " bytes (but should be "
               << c->frame_size * 2 * c->channels << " bytes)" );
-  int packetSize = avcodec_encode_audio( c, (uint8_t *)m_audio_buf,
+  int packetSize = avcodec_encode_audio( c, (uint8_t *)m_audioBuf,
                                          AUDIO_BUF_SIZE, (short *)frame->data() );
   ERRORMACRO( packetSize >= 0, Error, , "Error encoding audio frame" );
   if ( packetSize > 0 ) {
@@ -302,10 +302,10 @@ void AVOutput::writeAudio( SequencePtr frame ) throw (Error)
     av_init_packet( &packet );
     if ( c->coded_frame && c->coded_frame->pts != AV_NOPTS_VALUE )
       packet.pts = av_rescale_q( c->coded_frame->pts, c->time_base,
-                                 m_audio_st->time_base );
+                                 m_audioStream->time_base );
     packet.flags |= PKT_FLAG_KEY;
-    packet.stream_index = m_audio_st->index;
-    packet.data = (uint8_t *)m_audio_buf;
+    packet.stream_index = m_audioStream->index;
+    packet.data = (uint8_t *)m_audioBuf;
     packet.size = packetSize;
     ERRORMACRO( av_interleaved_write_frame( m_oc, &packet ) >= 0, Error, ,
                 "Error writing audio frame of video \"" << m_mrl << "\": "

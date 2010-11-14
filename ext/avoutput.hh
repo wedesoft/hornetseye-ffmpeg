@@ -72,14 +72,14 @@ public:
 protected:
   std::string m_mrl;
   AVFormatContext *m_oc;
-  AVStream *m_video_st;
-  AVStream *m_audio_st;
-  bool m_video_codec_open;
-  bool m_audio_codec_open;
-  char *m_video_buf;
-  char *m_audio_buf;
-  bool m_file_open;
-  bool m_header_written;
+  AVStream *m_videoStream;
+  AVStream *m_audioStream;
+  bool m_videoCodecOpen;
+  bool m_audioCodecOpen;
+  char *m_videoBuf;
+  char *m_audioBuf;
+  bool m_fileOpen;
+  bool m_headerWritten;
   struct SwsContext *m_swsContext;
   AVFrame *m_frame;
 };
