@@ -23,14 +23,15 @@ module Hornetseye
 
       alias_method :orig_new, :new
 
-      def new( mrl, video_bit_rate, width, height, frame_rate, video_codec = nil,
-               have_audio = false, audio_bit_rate = 64000, sample_rate = 44100,
-               channels = 2, audio_codec = nil )
+      def new( mrl, video_bit_rate, width, height, frame_rate, aspect_ratio = 1,
+               video_codec = nil, have_audio = false, audio_bit_rate = 64000,
+               sample_rate = 44100, channels = 2, audio_codec = nil )
         if frame_rate.is_a? Float
           frame_rate = Rational( 90000, ( 90000 / frame_rate ).to_i )
         end
         retval = orig_new mrl, video_bit_rate, width, height,
                           frame_rate.denominator, frame_rate.numerator,
+                          aspect_ratio.numerator, aspect_ratio.denominator,
                           video_codec || CODEC_ID_NONE,
                           have_audio ? audio_bit_rate : 0,
                           have_audio ? sample_rate : 0,

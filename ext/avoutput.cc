@@ -31,7 +31,8 @@ using namespace std;
 VALUE AVOutput::cRubyClass = Qnil;
 
 AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
-                    int timeBaseNum, int timeBaseDen, enum CodecID videoCodec,
+                    int timeBaseNum, int timeBaseDen, int aspectRatioNum,
+                    int aspectRatioDen, enum CodecID videoCodec,
                     int audioBitRate, int sampleRate, int channels,
                     enum CodecID audioCodec ) throw (Error):
   m_mrl( mrl ), m_oc( NULL ), m_video_st( NULL ), m_audio_st( NULL),
@@ -57,6 +58,8 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
                 "Output format does not support video" );
     m_video_st = av_new_stream( m_oc, 0 );
     ERRORMACRO( m_video_st != NULL, Error, , "Could not allocate video stream" );
+    m_video_st->sample_aspect_ratio.num = aspectRatioNum;
+    m_video_st->sample_aspect_ratio.den = aspectRatioDen;
     AVCodecContext *c = m_video_st->codec;
     c->codec_id = videoCodec != CODEC_ID_NONE ? videoCodec : format->video_codec;
     c->codec_type = CODEC_TYPE_VIDEO;
@@ -67,6 +70,8 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     c->time_base.den = timeBaseDen;
     c->gop_size = 12;
     c->pix_fmt = PIX_FMT_YUV420P;
+    c->sample_aspect_ratio.num = aspectRatioNum;
+    c->sample_aspect_ratio.den = aspectRatioDen;
     if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
       c->flags |= CODEC_FLAG_GLOBAL_HEADER;
     if ( channels > 0 ) {
@@ -78,6 +83,8 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
       c->bit_rate = audioBitRate;
       c->sample_rate = sampleRate;
       c->channels = channels;
+      if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
+        c->flags |= CODEC_FLAG_GLOBAL_HEADER;
     };
     ERRORMACRO( av_set_parameters( m_oc, NULL ) >= 0, Error, ,
                 "Invalid output format parameters: " << strerror( errno ) );
@@ -296,7 +303,7 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
 {
   cRubyClass = rb_define_class_under( rbModule, "AVOutput", rb_cObject );
   rb_define_singleton_method( cRubyClass, "new",
-                              RUBY_METHOD_FUNC( wrapNew ), 11 );
+                              RUBY_METHOD_FUNC( wrapNew ), 13 );
   rb_define_const( cRubyClass, "CODEC_ID_NONE",
                    INT2FIX( CODEC_ID_NONE ) );
   rb_define_const( cRubyClass, "CODEC_ID_MPEG1VIDEO",
@@ -781,6 +788,7 @@ void AVOutput::deleteRubyObject( void *ptr )
 
 VALUE AVOutput::wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbBitRate, VALUE rbWidth,
                          VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen,
+                         VALUE rbAspectRatioNum, VALUE rbAspectRatioDen,
                          VALUE rbVideoCodec, VALUE rbAudioBitRate, VALUE rbSampleRate,
                          VALUE rbChannels, VALUE rbAudioCodec )
 {
@@ -790,6 +798,8 @@ VALUE AVOutput::wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbBitRate, VALUE rbWi
     AVOutputPtr ptr( new AVOutput( StringValuePtr( rbMRL ), NUM2INT( rbBitRate ),
                                    NUM2INT( rbWidth ), NUM2INT( rbHeight ),
                                    NUM2INT( rbTimeBaseNum ), NUM2INT( rbTimeBaseDen ),
+                                   NUM2INT( rbAspectRatioNum ),
+                                   NUM2INT( rbAspectRatioDen ),
                                    (enum CodecID)NUM2INT( rbVideoCodec ),
                                    NUM2INT( rbAudioBitRate ), NUM2INT( rbSampleRate ),
                                    NUM2INT( rbChannels ),
