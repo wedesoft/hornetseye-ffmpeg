@@ -202,6 +202,38 @@ void AVOutput::close(void)
   };
 }
 
+AVRational AVOutput::videoTimeBase(void) throw (Error)
+{
+  ERRORMACRO( m_videoStream != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_videoStream->time_base;
+}
+
+AVRational AVOutput::audioTimeBase(void) throw (Error)
+{
+  ERRORMACRO( m_audioStream != NULL, Error, , "Audio \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  return m_audioStream->time_base;
+}
+
+int AVOutput::frameSize(void) throw (Error)
+{
+  ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  ERRORMACRO( m_audioStream != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
+              "an audio stream" );
+  return m_audioStream->codec->frame_size;
+}
+
+int AVOutput::channels(void) throw (Error)
+{
+  ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
+              "Did you call \"close\" before?" );
+  ERRORMACRO( m_audioStream != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
+              "an audio stream" );
+  return m_audioStream->codec->channels;
+}
+
 void AVOutput::writeVideo( FramePtr frame ) throw (Error)
 {
   ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
@@ -250,38 +282,6 @@ void AVOutput::writeVideo( FramePtr frame ) throw (Error)
                   << strerror( errno ) );
     };
   };
-}
-
-AVRational AVOutput::videoTimeBase(void) throw (Error)
-{
-  ERRORMACRO( m_videoStream != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
-              "Did you call \"close\" before?" );
-  return m_videoStream->time_base;
-}
-
-AVRational AVOutput::audioTimeBase(void) throw (Error)
-{
-  ERRORMACRO( m_audioStream != NULL, Error, , "Audio \"" << m_mrl << "\" is not open. "
-              "Did you call \"close\" before?" );
-  return m_audioStream->time_base;
-}
-
-int AVOutput::frameSize(void) throw (Error)
-{
-  ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
-              "Did you call \"close\" before?" );
-  ERRORMACRO( m_audioStream != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
-              "an audio stream" );
-  return m_audioStream->codec->frame_size;
-}
-
-int AVOutput::channels(void) throw (Error)
-{
-  ERRORMACRO( m_oc != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
-              "Did you call \"close\" before?" );
-  ERRORMACRO( m_audioStream != NULL, Error, , "Video \"" << m_mrl << "\" does not have "
-              "an audio stream" );
-  return m_audioStream->codec->channels;
 }
 
 void AVOutput::writeAudio( SequencePtr frame ) throw (Error)
