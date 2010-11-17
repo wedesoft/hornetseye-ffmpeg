@@ -32,6 +32,7 @@ extern "C" {
   {
     rb_require( "hornetseye_frame" );
     VALUE rbHornetseye = rb_define_module( "Hornetseye" );
+    avcodec_register_all();
     av_register_all();
     AVInput::registerRubyClass( rbHornetseye );
     AVOutput::registerRubyClass( rbHornetseye );
