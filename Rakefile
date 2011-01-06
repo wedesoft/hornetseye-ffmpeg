@@ -100,6 +100,7 @@ end
 
 file 'ext/config.h' do |t|
   s = "/* config.h. Generated from Rakefile by rake. */\n"
+  # need to compile with -D__STDC_CONSTANT_MACROS
   if check_c_header 'libswscale/swscale.h'
     s << "#define HAVE_LIBSWSCALE_INCDIR 1\n"
   elsif check_c_header 'ffmpeg/swscale.h'
@@ -175,7 +176,7 @@ begin
   require 'yard'
   YARD::Rake::YardocTask.new :yard do |y|
     y.options << '--no-private'
-    y.files << FileList[ 'lib/**/*.rb' ]
+    y.files << RB_FILES
   end
 rescue LoadError
   STDERR.puts 'Please install \'yard\' if you want to generate documentation'
