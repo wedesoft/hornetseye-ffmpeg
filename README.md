@@ -12,9 +12,9 @@ This Ruby extension defines the class {Hornetseye::AVInput} for reading frames f
 
 Installation
 ------------
-*hornetseye-ffmpeg* requires the FFMpeg library. If you are running Debian or (K)ubuntu, you can install it like this:
+*hornetseye-ffmpeg* requires FFMpeg and the software scaling library. If you are running Debian or (K)ubuntu, you can install them like this:
 
-    $ sudo aptitude install libavformat-dev
+    $ sudo aptitude install libavformat-dev libswscale-dev
 
 To install this Ruby extension, use the following command:
 
