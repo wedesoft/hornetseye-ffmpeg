@@ -113,6 +113,8 @@ module Hornetseye
       orig_aspect_ratio == 0 ? 1 : orig_aspect_ratio
     end
 
+    include ReaderConversion
+
   end
 
 end
