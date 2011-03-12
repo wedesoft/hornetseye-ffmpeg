@@ -1,5 +1,5 @@
 hornetseye-ffmpeg
-===============
+=================
 
 **Author**:       Jan Wedekind
 **Copyright**:    2010, 2011
