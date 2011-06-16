@@ -58,12 +58,12 @@ module Hornetseye
     def enqueue_frame
       frame = read_av
       if frame.is_a? Frame_
-        @video.enq [ frame, video_pts ]
+        @video.enq [frame, video_pts]
         @frame = frame
       else
         n = channels
-        target = Hornetseye::MultiArray SINT, n, frame.size / ( 2 * n )
-        @audio.enq [ target.new( frame.memory ), audio_pts ]
+        samples = MultiArray.import(SINT, frame.memory, n, frame.size / (2 * n))
+        @audio.enq [samples, audio_pts]
       end
     end
 

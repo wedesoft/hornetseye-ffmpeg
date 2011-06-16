@@ -39,7 +39,7 @@ module Hornetseye
                           audio_codec || CODEC_ID_NONE
         if have_audio
           retval.instance_eval do
-            @audio_buffer = Hornetseye::MultiArray( SINT, channels, frame_size ).new
+            @audio_buffer = MultiArray.new SINT, channels, frame_size
             @audio_samples = 0
           end
         end
@@ -70,18 +70,18 @@ module Hornetseye
         raise "Audio frame must have #{channels} channels " +
               "(but had #{frame.shape.first})"
       end
-      frame_type = Hornetseye::Sequence UBYTE, frame_size * 2 * channels
+      size = frame_size * 2 * channels
       remaining = frame
       while @audio_samples + remaining.shape.last >= frame_size
         if @audio_samples > 0
           @audio_buffer[ @audio_samples ... frame_size ] =
             remaining[ 0 ... frame_size - @audio_samples ]
-          orig_write_audio frame_type.new( @audio_buffer.memory )
+          orig_write_audio Sequence.import(UBYTE, @audio_buffer.memory, size)
           remaining = remaining[ 0 ... channels,
                                  frame_size - @audio_samples ... remaining.shape.last ]
           @audio_samples = 0
         else
-          orig_write_audio frame_type.new( remaining.memory )
+          orig_write_audio Sequence.import(UBYTE, remaining.memory, size)
           remaining = remaining[ 0 ... channels, frame_size ... remaining.shape.last ]
         end
       end
