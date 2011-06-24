@@ -30,8 +30,8 @@ extern "C" {
 
   void Init_hornetseye_ffmpeg(void)
   {
-    rb_require( "rational" );
-    rb_require( "hornetseye_frame" );
+    rb_eval_string( "require 'rational'" );
+    rb_eval_string( "require 'hornetseye_frame'" );
     VALUE rbHornetseye = rb_define_module( "Hornetseye" );
     avcodec_register_all();
     av_register_all();
