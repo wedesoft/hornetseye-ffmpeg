@@ -48,6 +48,7 @@ public:
   bool status(void) const;
   int width(void) const throw (Error);
   int height(void) const throw (Error);
+  bool hasVideo(void) const;
   bool hasAudio(void) const;
   AVRational videoTimeBase(void) throw (Error);
   AVRational audioTimeBase(void) throw (Error);
@@ -80,6 +81,7 @@ public:
   static VALUE wrapAudioStartTime( VALUE rbSelf );
   static VALUE wrapWidth( VALUE rbSelf );
   static VALUE wrapHeight( VALUE rbSelf );
+  static VALUE wrapHasVideo( VALUE rbSelf );
   static VALUE wrapHasAudio( VALUE rbSelf );
   static VALUE wrapSeek( VALUE rbSelf, VALUE rbPos );
   static VALUE wrapVideoPTS( VALUE rbSelf );

@@ -47,7 +47,9 @@ module Hornetseye
       frame
     end
 
-    alias_method :read, :read_video
+    def read
+      has_video? ? read_video : read_audio
+    end
 
     def read_audio
       enqueue_frame while @audio.empty?

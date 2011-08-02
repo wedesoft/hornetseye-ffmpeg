@@ -52,20 +52,27 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
     cerr << "Video stream index is " << m_videoStream << endl;
     cerr << "Audio stream index is " << m_audioStream << endl;
 #endif
-    ERRORMACRO( m_videoStream >= 0, Error, ,
-                "Could not find video stream in file \"" << mrl << "\"" );
-    m_videoDec = m_ic->streams[ m_videoStream ]->codec;
+    if ( m_videoStream >= 0 )
+      m_videoDec = m_ic->streams[ m_videoStream ]->codec;
+    if ( m_videoDec != NULL ) {
+      m_videoCodec = avcodec_find_decoder( m_videoDec->codec_id );
+      ERRORMACRO( m_videoCodec != NULL, Error, , "Could not find video decoder for "
+                  "file \"" << mrl << "\"" );
+      err = avcodec_open( m_videoDec, m_videoCodec );
+      if ( err < 0 ) {
+        m_videoCodec = NULL;
+        ERRORMACRO( false, Error, , "Error opening video codec for file \""
+                    << mrl << "\": " << strerror( errno ) );
+      };
+      m_swsContext = sws_getContext( m_videoDec->width, m_videoDec->height,
+                                     m_videoDec->pix_fmt,
+                                     m_videoDec->width, m_videoDec->height,
+                                     PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0 );
+      m_avFrame = avcodec_alloc_frame();
+      ERRORMACRO( m_avFrame, Error, , "Error allocating frame" );
+    };
     if ( m_audioStream >= 0 )
       m_audioDec = m_ic->streams[ m_audioStream ]->codec;
-    m_videoCodec = avcodec_find_decoder( m_videoDec->codec_id );
-    ERRORMACRO( m_videoCodec != NULL, Error, , "Could not find video decoder for "
-                "file \"" << mrl << "\"" );
-    err = avcodec_open( m_videoDec, m_videoCodec );
-    if ( err < 0 ) {
-      m_videoCodec = NULL;
-      ERRORMACRO( false, Error, , "Error opening video codec for file \""
-                  << mrl << "\": " << strerror( errno ) );
-    };
     if ( m_audioDec != NULL ) {
       m_audioCodec = avcodec_find_decoder( m_audioDec->codec_id );
       ERRORMACRO( m_audioCodec != NULL, Error, , "Could not find audio decoder for "
@@ -77,12 +84,6 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
                     << mrl << "\": " << strerror( errno ) );
       };
     };
-    m_swsContext = sws_getContext( m_videoDec->width, m_videoDec->height,
-                                   m_videoDec->pix_fmt,
-                                   m_videoDec->width, m_videoDec->height,
-                                   PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0 );
-    m_avFrame = avcodec_alloc_frame();
-    ERRORMACRO( m_avFrame, Error, , "Error allocating frame" );
   } catch ( Error &e ) {
     close();
     throw e;
@@ -228,6 +229,11 @@ int AVInput::height(void) const throw (Error)
   return m_videoDec->height;
 }
 
+bool AVInput::hasVideo(void) const
+{
+  return m_videoStream != -1;
+}
+
 bool AVInput::hasAudio(void) const
 {
   return m_audioStream != -1;
@@ -346,6 +352,7 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "width", RUBY_METHOD_FUNC( wrapWidth ), 0 );
   rb_define_method( cRubyClass, "height", RUBY_METHOD_FUNC( wrapHeight ), 0 );
   rb_define_method( cRubyClass, "has_audio?", RUBY_METHOD_FUNC( wrapHasAudio ), 0 );
+  rb_define_method( cRubyClass, "has_video?", RUBY_METHOD_FUNC( wrapHasVideo ), 0 );
   rb_define_method( cRubyClass, "seek", RUBY_METHOD_FUNC( wrapSeek ), 1 );
   rb_define_method( cRubyClass, "video_pts", RUBY_METHOD_FUNC( wrapVideoPTS ), 0 );
   rb_define_method( cRubyClass, "audio_pts", RUBY_METHOD_FUNC( wrapAudioPTS ), 0 );
@@ -544,6 +551,12 @@ VALUE AVInput::wrapHeight( VALUE rbSelf )
     rb_raise( rb_eRuntimeError, "%s", e.what() );
   };
   return retVal;
+}
+
+VALUE AVInput::wrapHasVideo( VALUE rbSelf )
+{
+  AVInputPtr *self; Data_Get_Struct( rbSelf, AVInputPtr, self );
+  return (*self)->hasVideo() ? Qtrue : Qfalse;
 }
 
 VALUE AVInput::wrapHasAudio( VALUE rbSelf )
