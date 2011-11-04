@@ -16,7 +16,6 @@
 #ifndef NDEBUG
 #include <iostream>
 #endif
-#include <malloc.h>
 #include "avinput.hh"
 
 #if !defined(INT64_C)
@@ -175,8 +174,10 @@ void AVInput::readAV(void) throw (Error)
       unsigned char *data = packet.data;
       int size = packet.size;
       while ( size > 0 ) {
-        short int *buffer =
-          (short int *)memalign( 16, AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 2 );
+        short int *buffer;
+        ERRORMACRO(posix_memalign((void **)&buffer, 16,
+                                  AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 2) == 0, Error, ,
+                   "Error allocating aligned memory");
         buffer[ AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 4 - 1 ] = '\000';
         int bufSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 2;
         int len = avcodec_decode_audio2( m_audioDec, buffer, &bufSize, data, size );
