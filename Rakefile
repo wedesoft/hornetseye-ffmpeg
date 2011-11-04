@@ -80,7 +80,7 @@ def check_program
   f_base_name = 'rakeconf'
   begin
     File.open( "#{f_base_name}.cc", 'w' ) { |f| yield f }
-    `#{CXX} -S #{$CXXFLAGS} -c -o #{f_base_name}.o #{f_base_name}.cc 2>&1 >> rake.log`
+    `#{CXX} #{$CXXFLAGS} -c -o #{f_base_name}.o #{f_base_name}.cc 2>&1 >> rake.log`
     $?.exitstatus == 0
   ensure
     File.delete *Dir.glob( "#{f_base_name}.*" )
