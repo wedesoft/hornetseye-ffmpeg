@@ -7,7 +7,7 @@ require 'rake/loaders/makefile'
 require 'rbconfig'
 
 PKG_NAME = 'hornetseye-ffmpeg'
-PKG_VERSION = '0.11.0'
+PKG_VERSION = '0.11.1'
 CFG = RbConfig::CONFIG
 CXX = ENV[ 'CXX' ] || 'g++'
 RB_FILES = FileList[ 'lib/**/*.rb' ]
@@ -46,7 +46,7 @@ desc 'Compile Ruby extension (default)'
 task :all => [ SO_FILE ]
 
 file SO_FILE => OBJ do |t|
-   sh "#{CXX} -shared -o #{t.name} #{OBJ} -lavformat -lswscale #{$LIBRUBYARG}"
+   sh "#{CXX} -shared -o #{t.name} #{OBJ} -lavformat -lavcodec -lavutil -lswscale #{$LIBRUBYARG}"
 end
 
 task :test => [ SO_FILE ]
