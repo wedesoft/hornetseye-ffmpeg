@@ -42,9 +42,9 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
     ERRORMACRO( err >= 0, Error, , "Error finding stream info for file \""
                 << mrl << "\": " << strerror( errno ) );
     for ( unsigned int i=0; i<m_ic->nb_streams; i++ ) {
-      if ( m_ic->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO )
+      if ( m_ic->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO )
         m_videoStream = i;
-      if ( audio && m_ic->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO )
+      if ( audio && m_ic->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO )
           m_audioStream = i;
     };
 #ifndef NDEBUG
@@ -136,8 +136,8 @@ void AVInput::readAV(void) throw (Error)
   while ( av_read_frame( m_ic, &packet ) >= 0 ) {
     if ( packet.stream_index == m_videoStream ) {
       int frameFinished;
-      int err = avcodec_decode_video( m_videoDec, m_avFrame, &frameFinished,
-                                      packet.data, packet.size );
+      int err = avcodec_decode_video2( m_videoDec, m_avFrame, &frameFinished,
+                                       &packet );
       ERRORMACRO( err >= 0, Error, ,
                   "Error decoding video frame of video \"" << m_mrl << "\"" );
       if ( firstPacketPts == AV_NOPTS_VALUE ) firstPacketPts = packet.pts;
@@ -173,22 +173,22 @@ void AVInput::readAV(void) throw (Error)
       m_audioFrame.reset();
       unsigned char *data = packet.data;
       int size = packet.size;
-      while ( size > 0 ) {
+      while ( packet.size > 0 ) {
         short int *buffer;
         ERRORMACRO(posix_memalign((void **)&buffer, 16,
                                   AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 2) == 0, Error, ,
                    "Error allocating aligned memory");
         buffer[ AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 4 - 1 ] = '\000';
         int bufSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 2;
-        int len = avcodec_decode_audio2( m_audioDec, buffer, &bufSize, data, size );
+        int len = avcodec_decode_audio3( m_audioDec, buffer, &bufSize, &packet );
         if ( len < 0 ) {
           free( buffer );
           m_audioFrame.reset();
           ERRORMACRO( false, Error, , "Error decoding audio frame of video \""
                       << m_mrl << "\"" );
         };
-        data += len;
-        size -= len;
+        packet.data += len;
+        packet.size -= len;
         if ( bufSize > 0 ) {
           if ( m_audioFrame.get() ) {
             SequencePtr extended( new Sequence( m_audioFrame->size() + bufSize ) );
@@ -202,6 +202,8 @@ void AVInput::readAV(void) throw (Error)
         };
         free( buffer );
       };
+      packet.data = data;
+      packet.size = size;
       av_free_packet( &packet );
       if ( m_audioFrame.get() ) break;
     } else

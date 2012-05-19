@@ -17,6 +17,7 @@
 #ifndef NDEBUG
 #include <iostream>
 #endif
+#include <libavutil/mathematics.h>
 #include "avoutput.hh"
 
 #if !defined(INT64_C)
@@ -42,8 +43,8 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
 {
   try {
     AVOutputFormat *format;
-    format = guess_format( NULL, mrl.c_str(), NULL );
-    if ( format == NULL ) format = guess_format( "mpeg", NULL, NULL );
+    format = av_guess_format( NULL, mrl.c_str(), NULL );
+    if ( format == NULL ) format = av_guess_format( "mpeg", NULL, NULL );
     ERRORMACRO( format != NULL, Error, ,
                 "Could not find suitable output format for \"" << mrl << "\""  );
 #ifdef HAVE_LIBAVFORMAT_ALLOC_CONTEXT
@@ -62,7 +63,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     m_videoStream->sample_aspect_ratio.den = aspectRatioDen;
     AVCodecContext *c = m_videoStream->codec;
     c->codec_id = videoCodec != CODEC_ID_NONE ? videoCodec : format->video_codec;
-    c->codec_type = CODEC_TYPE_VIDEO;
+    c->codec_type = AVMEDIA_TYPE_VIDEO;
     c->bit_rate = videoBitRate;
     c->width = width;
     c->height = height;
@@ -79,7 +80,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
       ERRORMACRO( m_audioStream != NULL, Error, , "Could not allocate audio stream" );
       AVCodecContext *c = m_audioStream->codec;
       c->codec_id = audioCodec != CODEC_ID_NONE ? audioCodec : format->audio_codec;
-      c->codec_type = CODEC_TYPE_AUDIO;
+      c->codec_type = AVMEDIA_TYPE_AUDIO;
       c->bit_rate = audioBitRate;
       c->sample_rate = sampleRate;
       c->channels = channels;
@@ -273,7 +274,7 @@ void AVOutput::writeVideo( FramePtr frame ) throw (Error)
         packet.pts = av_rescale_q( c->coded_frame->pts, c->time_base,
                                    m_videoStream->time_base );
       if ( c->coded_frame->key_frame )
-        packet.flags |= PKT_FLAG_KEY;
+        packet.flags |= AV_PKT_FLAG_KEY;
       packet.stream_index = m_videoStream->index;
       packet.data = (uint8_t *)m_videoBuf;
       packet.size = packetSize;
@@ -303,7 +304,7 @@ void AVOutput::writeAudio( SequencePtr frame ) throw (Error)
     if ( c->coded_frame && c->coded_frame->pts != AV_NOPTS_VALUE )
       packet.pts = av_rescale_q( c->coded_frame->pts, c->time_base,
                                  m_audioStream->time_base );
-    packet.flags |= PKT_FLAG_KEY;
+    packet.flags |= AV_PKT_FLAG_KEY;
     packet.stream_index = m_audioStream->index;
     packet.data = (uint8_t *)m_audioBuf;
     packet.size = packetSize;
@@ -444,8 +445,6 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
                    INT2FIX( CODEC_ID_VIXL ) );
   rb_define_const( cRubyClass, "CODEC_ID_QPEG",
                    INT2FIX( CODEC_ID_QPEG ) );
-  rb_define_const( cRubyClass, "CODEC_ID_XVID",
-                   INT2FIX( CODEC_ID_XVID ) );
   rb_define_const( cRubyClass, "CODEC_ID_PNG",
                    INT2FIX( CODEC_ID_PNG ) );
   rb_define_const( cRubyClass, "CODEC_ID_PPM",
