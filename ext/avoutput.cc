@@ -17,7 +17,9 @@
 #ifndef NDEBUG
 #include <iostream>
 #endif
-#include <libavutil/mathematics.h>
+extern "C" {
+  #include <libavutil/mathematics.h>
+}
 #include "avoutput.hh"
 
 #if !defined(INT64_C)
