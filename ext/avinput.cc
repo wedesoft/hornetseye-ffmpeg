@@ -32,13 +32,13 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
   m_mrl( mrl ), m_ic( NULL ), m_videoDec( NULL ), m_audioDec( NULL ),
   m_videoCodec( NULL ), m_audioCodec( NULL ),
   m_videoStream( -1 ), m_audioStream( -1 ), m_videoPts( 0 ), m_audioPts( 0 ),
-  m_swsContext( NULL ), m_avFrame( NULL )
+  m_swsContext(NULL), m_vFrame(NULL), m_aFrame(NULL)
 {
   try {
-    int err = av_open_input_file( &m_ic, mrl.c_str(), NULL, 0, NULL );
+    int err = avformat_open_input(&m_ic, mrl.c_str(), NULL, NULL);
     ERRORMACRO( err >= 0, Error, , "Error opening file \"" << mrl << "\": "
                 << strerror( errno ) );
-    err = av_find_stream_info( m_ic );
+    err = avformat_find_stream_info(m_ic, NULL);
     ERRORMACRO( err >= 0, Error, , "Error finding stream info for file \""
                 << mrl << "\": " << strerror( errno ) );
     for ( unsigned int i=0; i<m_ic->nb_streams; i++ ) {
@@ -57,7 +57,7 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
       m_videoCodec = avcodec_find_decoder( m_videoDec->codec_id );
       ERRORMACRO( m_videoCodec != NULL, Error, , "Could not find video decoder for "
                   "file \"" << mrl << "\"" );
-      err = avcodec_open( m_videoDec, m_videoCodec );
+      err = avcodec_open2(m_videoDec, m_videoCodec, NULL);
       if ( err < 0 ) {
         m_videoCodec = NULL;
         ERRORMACRO( false, Error, , "Error opening video codec for file \""
@@ -67,8 +67,10 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
                                      m_videoDec->pix_fmt,
                                      m_videoDec->width, m_videoDec->height,
                                      PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0 );
-      m_avFrame = avcodec_alloc_frame();
-      ERRORMACRO( m_avFrame, Error, , "Error allocating frame" );
+      m_vFrame = avcodec_alloc_frame();
+      ERRORMACRO(m_vFrame, Error, , "Error allocating frame");
+      m_aFrame = avcodec_alloc_frame();
+      ERRORMACRO(m_aFrame, Error, , "Error allocating frame");
     };
     if ( m_audioStream >= 0 )
       m_audioDec = m_ic->streams[ m_audioStream ]->codec;
@@ -76,7 +78,7 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
       m_audioCodec = avcodec_find_decoder( m_audioDec->codec_id );
       ERRORMACRO( m_audioCodec != NULL, Error, , "Could not find audio decoder for "
                   "file \"" << mrl << "\"" );
-      err = avcodec_open( m_audioDec, m_audioCodec );
+      err = avcodec_open2( m_audioDec, m_audioCodec, NULL);
       if ( err < 0 ) {
         m_audioCodec = NULL;
         ERRORMACRO( false, Error, , "Error opening audio codec for file \""
@@ -98,9 +100,13 @@ void AVInput::close(void)
 {
   m_audioFrame.reset();
   m_videoFrame.reset();
-  if ( m_avFrame ) {
-    av_free( m_avFrame );
-    m_avFrame = NULL;
+  if (m_vFrame) {
+    av_free(m_vFrame);
+    m_vFrame = NULL;
+  };
+  if (m_aFrame) {
+    av_free(m_aFrame);
+    m_aFrame = NULL;
   };
   if ( m_swsContext ) {
     sws_freeContext( m_swsContext );
@@ -120,7 +126,7 @@ void AVInput::close(void)
   m_audioStream = -1;
   m_videoStream = -1;
   if ( m_ic ) {
-    av_close_input_file( m_ic );
+    avformat_close_input(&m_ic);
     m_ic = NULL;
   };
 }
@@ -136,10 +142,10 @@ void AVInput::readAV(void) throw (Error)
   while ( av_read_frame( m_ic, &packet ) >= 0 ) {
     if ( packet.stream_index == m_videoStream ) {
       int frameFinished;
-      int err = avcodec_decode_video2( m_videoDec, m_avFrame, &frameFinished,
+      int err = avcodec_decode_video2( m_videoDec, m_vFrame, &frameFinished,
                                        &packet );
       ERRORMACRO( err >= 0, Error, ,
-                  "Error decoding video frame of video \"" << m_mrl << "\"" );
+                  "Error decoding video frame of file \"" << m_mrl << "\"" );
       if ( firstPacketPts == AV_NOPTS_VALUE ) firstPacketPts = packet.pts;
       if ( frameFinished ) {
         if ( packet.dts != AV_NOPTS_VALUE )
@@ -163,51 +169,33 @@ void AVInput::readAV(void) throw (Error)
         picture.linesize[0] = widtha;
         picture.linesize[1] = width2a;
         picture.linesize[2] = width2a;
-        sws_scale( m_swsContext, m_avFrame->data, m_avFrame->linesize, 0,
+        sws_scale( m_swsContext, m_vFrame->data, m_vFrame->linesize, 0,
                    m_videoDec->height, picture.data, picture.linesize );
         break;
       } else
         av_free_packet( &packet );
     } else if ( packet.stream_index == m_audioStream ) {
       if ( packet.pts != AV_NOPTS_VALUE ) m_audioPts = packet.pts;
-      m_audioFrame.reset();
-      unsigned char *data = packet.data;
-      int size = packet.size;
-      while ( packet.size > 0 ) {
-        short int *buffer;
-        ERRORMACRO(posix_memalign((void **)&buffer, 16,
-                                  AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 2) == 0, Error, ,
-                   "Error allocating aligned memory");
-        buffer[ AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 4 - 1 ] = '\000';
-        int bufSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * 3 / 2;
-        int len = avcodec_decode_audio3( m_audioDec, buffer, &bufSize, &packet );
-        if ( len < 0 ) {
-          free( buffer );
-          m_audioFrame.reset();
-          ERRORMACRO( false, Error, , "Error decoding audio frame of video \""
-                      << m_mrl << "\"" );
-        };
-        packet.data += len;
-        packet.size -= len;
-        if ( bufSize > 0 ) {
-          if ( m_audioFrame.get() ) {
-            SequencePtr extended( new Sequence( m_audioFrame->size() + bufSize ) );
-            memcpy( extended->data(), m_audioFrame->data(), m_audioFrame->size() );
-            memcpy( extended->data() + m_audioFrame->size(), buffer, bufSize );
-            m_audioFrame = extended;
-          } else {
-            m_audioFrame = SequencePtr( new Sequence( bufSize ) );
-            memcpy( m_audioFrame->data(), buffer, bufSize );
-          };
-        };
-        free( buffer );
-      };
-      packet.data = data;
-      packet.size = size;
-      av_free_packet( &packet );
-      if ( m_audioFrame.get() ) break;
-    } else
-      av_free_packet( &packet );
+      int frameFinished;
+      int len = avcodec_decode_audio4(m_audioDec, m_aFrame, &frameFinished, &packet);
+      ERRORMACRO(len >= 0, Error, ,
+                 "Error decoding audio frame of file \"" << m_mrl << "\"" );
+      if (firstPacketPts == AV_NOPTS_VALUE) firstPacketPts = packet.pts;
+      if (frameFinished) {
+        if (packet.dts != AV_NOPTS_VALUE)
+          m_audioPts = packet.dts;
+        else
+          m_audioPts = firstPacketPts;
+        int bufSize = av_samples_get_buffer_size(NULL, m_audioDec->channels,
+                                                       m_aFrame->nb_samples,
+                                                       m_audioDec->sample_fmt, 1);
+        m_audioFrame = SequencePtr(new Sequence(bufSize));
+        memcpy( m_audioFrame->data(), m_aFrame->data[0], bufSize);
+        av_free_packet( &packet );
+        break;
+      } else
+        av_free_packet( &packet );
+    };
   };
   ERRORMACRO( m_videoFrame.get() || m_audioFrame.get(), Error, ,
               "No more frames available" );
@@ -359,6 +347,7 @@ VALUE AVInput::registerRubyClass( VALUE rbModule )
   rb_define_method( cRubyClass, "seek", RUBY_METHOD_FUNC( wrapSeek ), 1 );
   rb_define_method( cRubyClass, "video_pts", RUBY_METHOD_FUNC( wrapVideoPTS ), 0 );
   rb_define_method( cRubyClass, "audio_pts", RUBY_METHOD_FUNC( wrapAudioPTS ), 0 );
+  return cRubyClass;
 }
 
 void AVInput::deleteRubyObject( void *ptr )

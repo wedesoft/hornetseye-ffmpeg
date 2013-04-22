@@ -98,7 +98,8 @@ protected:
   long long m_videoPts;
   long long m_audioPts;
   struct SwsContext *m_swsContext;
-  AVFrame *m_avFrame;
+  AVFrame *m_vFrame;
+  AVFrame *m_aFrame;
   FramePtr m_videoFrame;
   SequencePtr m_audioFrame;
 };
