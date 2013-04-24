@@ -116,54 +116,6 @@ file 'ext/config.h' do |t|
   else
     raise 'Cannot find avformat.h header file'
   end
-  have_libavformat_alloc_context = check_program do |c|
-    c.puts <<EOS
-extern "C" {
-  #include <#{have_libavformat_incdir ? 'libavformat' : 'ffmpeg'}/avformat.h>
-}
-int main(void) { avformat_alloc_context(); return 0; }
-EOS
-  end
-  if have_libavformat_alloc_context
-    s << "#define HAVE_LIBAVFORMAT_ALLOC_CONTEXT 1\n"
-  else
-    have_alloc_format_context = check_program do |c|
-      c.puts <<EOS
-extern "C" {
-  #include <#{have_libavformat_incdir ? 'libavformat' : 'ffmpeg'}/avformat.h>
-}
-int main(void) { av_alloc_format_context(); return 0; }
-EOS
-    end
-    unless have_alloc_format_context
-      raise 'Cannot find constructor for AVFormatContext'
-    end
-    s << "#undef HAVE_LIBAVFORMAT_ALLOC_CONTEXT\n"
-  end
-  have_byteio_ptr = check_program do |c|
-    c.puts <<EOS
-extern "C" {
-  #include <#{have_libavformat_incdir ? 'libavformat' : 'ffmpeg'}/avformat.h>
-}
-int main(void) { AVFormatContext *c; url_fclose( c->pb ); return 0; }
-EOS
-  end
-  if have_byteio_ptr
-    s << "#define HAVE_BYTEIO_PTR 1\n"
-  else
-    have_byteio_inst = check_program do |c|
-      c.puts <<EOS
-extern "C" {
-  #include <#{have_libavformat_incdir ? 'libavformat' : 'ffmpeg'}/avformat.h>
-}
-int main(void) { AVFormatContext *c; url_fclose( &c->pb ); return 0; }
-EOS
-    end
-    unless have_byteio_inst
-      raise 'Cannot find ByteIOContext member variable'
-    end
-    s << "#undef HAVE_BYTEIO_PTR\n"
-  end
   File.open( t.name, 'w' ) { |f| f.puts s }
 end
 

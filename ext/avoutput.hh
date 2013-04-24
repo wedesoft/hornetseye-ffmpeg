@@ -43,9 +43,9 @@ class AVOutput
 public:
   AVOutput( const std::string &mrl, int videoBitRate, int width, int height,
             int timeBaseNum, int timeBaseDen, int aspectRatioNum,
-            int aspectRatioDen, enum CodecID videoCodec,
+            int aspectRatioDen, enum AVCodecID videoCodecID,
             int audioBitRate, int sampleRate, int channels,
-            enum CodecID audioCodec ) throw (Error);
+            enum AVCodecID audioCodecID) throw (Error);
   virtual ~AVOutput(void);
   void close(void);
   AVRational videoTimeBase(void) throw (Error);
@@ -60,8 +60,8 @@ public:
   static VALUE wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbBitRate, VALUE rbWidth,
                         VALUE rbHeight, VALUE rbTimeBaseNum, VALUE rbTimeBaseDen,
                         VALUE rbAspectRatioNum, VALUE rbAspectRatioDen,
-                        VALUE rbVideoCodec, VALUE rbAudioBitRate, VALUE rbSampleRate,
-                        VALUE rbChannels, VALUE rbAudioCodec );
+                        VALUE rbVideoCodecID, VALUE rbAudioBitRate, VALUE rbSampleRate,
+                        VALUE rbChannels, VALUE rbAudioCodecID);
   static VALUE wrapClose( VALUE rbSelf );
   static VALUE wrapVideoTimeBase( VALUE rbSelf );
   static VALUE wrapAudioTimeBase( VALUE rbSelf );

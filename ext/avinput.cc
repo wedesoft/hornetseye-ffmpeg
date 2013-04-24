@@ -35,6 +35,7 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
   m_swsContext(NULL), m_vFrame(NULL), m_aFrame(NULL)
 {
   try {
+    av_register_all();
     int err = avformat_open_input(&m_ic, mrl.c_str(), NULL, NULL);
     ERRORMACRO( err >= 0, Error, , "Error opening file \"" << mrl << "\": "
                 << strerror( errno ) );
