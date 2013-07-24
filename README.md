@@ -15,7 +15,7 @@ Installation
 
 *hornetseye-ffmpeg* requires FFMpeg and the software scaling library. If you are running Debian or (K)ubuntu, you can install them like this:
 
-    $ sudo aptitude install libavformat-dev libswscale-dev
+    $ sudo aptitude install libavformat-dev libswscale-dev libboost-dev
 
 To install this Ruby extension, use the following command:
 
