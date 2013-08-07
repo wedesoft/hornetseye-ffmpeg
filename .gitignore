@@ -6,4 +6,5 @@ pkg
 *.gem
 *.swp
 *.log
-
+tmp
+lib/*.so
