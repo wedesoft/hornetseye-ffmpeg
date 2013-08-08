@@ -26,10 +26,101 @@ extern "C" {
 #define INT64_C(c) c ## LL
 #endif
 
+#ifndef AV_VERSION_INT
+#define AV_VERSION_INT(a,b,c) (a<<16 | b<<8 | c)
+#endif
+
 #define VIDEO_BUF_SIZE ( 16 * FF_MIN_BUFFER_SIZE )
 #define AUDIO_BUF_SIZE ( 2 * FF_MIN_BUFFER_SIZE )
 
 using namespace std;
+
+AVStream *he_av_new_stream(AVFormatContext *s) {
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(53,10,0)
+    return av_new_stream(s, 0);
+#else
+    return avformat_new_stream(s, NULL);
+#endif
+}
+
+void he_avformat_free_context(AVFormatContext *c)
+{
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(52,96,0)
+    for ( unsigned int i = 0; i < c->nb_streams; i++ ) {
+      av_freep( &c->streams[i]->codec );
+      av_freep( &c->streams[i] );
+    };
+    av_free( c );
+#else
+    avformat_free_context( c );
+#endif
+}
+
+AVFormatContext *he_avformat_alloc_output_context(AVOutputFormat *oformat, const char *filename)
+{
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(53,0,4)
+    AVFormatContext *oc = avformat_alloc_context();
+    if (!oc)
+        return NULL;
+    oc->oformat = oformat;
+    if ( av_set_parameters( oc, NULL ) < 0 )
+    {
+        he_avformat_free_context( oc );
+        return NULL;
+    }
+
+    if (filename)
+        av_strlcpy(oc->filename, filename, sizeof(oc->filename));
+    return oc;
+#elif LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(53,24,1)
+    return avformat_alloc_output_context(NULL, oformat, filename);
+#else
+    AVFormatContext *oc = NULL;
+    avformat_alloc_output_context2(&oc, oformat, NULL, filename);
+    return oc;
+#endif
+}
+
+int he_avcodec_open(AVCodecContext *avctx, AVCodec *codec)
+{
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(53,5,1)
+    return avcodec_open(avctx, codec);
+#else
+    return avcodec_open2(avctx, codec, NULL);
+#endif
+}
+
+int he_url_open_write(AVFormatContext *oc, const char *url)
+{
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(52,102,0)
+    return url_fopen( &oc->pb, url, URL_WRONLY );
+#elif defined(AVIO_FLAG_WRITE)
+    return avio_open( &oc->pb, url, AVIO_FLAG_WRITE );
+#elif defined(AVIO_WRONLY)
+    return avio_open( &oc->pb, url, AVIO_WRONLY );
+#else
+    return avio_open( &oc->pb, url, URL_WRONLY );
+#endif
+}
+
+void he_url_close(AVFormatContext *oc)
+{
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(52,102,0)
+    url_fclose( oc->pb );
+#else
+    avio_close( oc->pb );
+#endif
+}
+
+int he_av_write_header(AVFormatContext *oc)
+{
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(53,1,4)
+    return av_write_header( oc );
+#else
+    return avformat_write_header( oc, NULL );
+#endif
+}
+
 
 VALUE AVOutput::cRubyClass = Qnil;
 
@@ -50,14 +141,11 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     if ( format == NULL ) format = av_guess_format( "mpeg", NULL, NULL );
     ERRORMACRO( format != NULL, Error, ,
                 "Could not find suitable output format for \"" << mrl << "\""  );
-    m_oc = avformat_alloc_context();
-    // m_oc = av_alloc_format_context();
+    m_oc = he_avformat_alloc_output_context( format, mrl.c_str() );
     ERRORMACRO( m_oc != NULL, Error, , "Failure allocating format context" );
-    m_oc->oformat = format;
-    snprintf( m_oc->filename, sizeof( m_oc->filename ), "%s", mrl.c_str() );
     ERRORMACRO( format->video_codec != CODEC_ID_NONE, Error, ,
                 "Output format does not support video" );
-    m_videoStream = av_new_stream( m_oc, 0 );
+    m_videoStream = he_av_new_stream( m_oc );
     ERRORMACRO( m_videoStream != NULL, Error, , "Could not allocate video stream" );
     m_videoStream->sample_aspect_ratio.num = aspectRatioNum;
     m_videoStream->sample_aspect_ratio.den = aspectRatioDen;
@@ -76,7 +164,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
       c->flags |= CODEC_FLAG_GLOBAL_HEADER;
     if ( channels > 0 ) {
-      m_audioStream = av_new_stream( m_oc, 0 );
+      m_audioStream = he_av_new_stream( m_oc );
       ERRORMACRO( m_audioStream != NULL, Error, , "Could not allocate audio stream" );
       AVCodecContext *c = m_audioStream->codec;
       c->codec_id = audioCodec != CODEC_ID_NONE ? audioCodec : format->audio_codec;
@@ -87,12 +175,10 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
       if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
         c->flags |= CODEC_FLAG_GLOBAL_HEADER;
     };
-    ERRORMACRO( av_set_parameters( m_oc, NULL ) >= 0, Error, ,
-                "Invalid output format parameters: " << strerror( errno ) );
     AVCodec *codec = avcodec_find_encoder( c->codec_id );
     ERRORMACRO( codec != NULL, Error, , "Could not find video codec "
                 << c->codec_id );
-    ERRORMACRO( avcodec_open( c, codec ) >= 0, Error, ,
+    ERRORMACRO( he_avcodec_open( c, codec ) >= 0, Error, ,
                 "Error opening video codec \"" << codec->name << "\": "
                 << strerror( errno ) );
     m_videoCodecOpen = true;
@@ -106,7 +192,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
       AVCodec *codec = avcodec_find_encoder( c->codec_id );
       ERRORMACRO( codec != NULL, Error, , "Could not find audio codec "
                   << c->codec_id );
-      ERRORMACRO( avcodec_open( c, codec ) >= 0, Error, ,
+      ERRORMACRO( he_avcodec_open( c, codec ) >= 0, Error, ,
                   "Error opening audio codec \"" << codec->name << "\": "
                   << strerror( errno ) );
       m_audioCodecOpen = true;
@@ -118,11 +204,11 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
 #endif
     };
     if ( !( format->flags & AVFMT_NOFILE ) ) {
-      ERRORMACRO( url_fopen( &m_oc->pb, mrl.c_str(), URL_WRONLY ) >= 0, Error, ,
+      ERRORMACRO( he_url_open_write( m_oc, mrl.c_str() ) >= 0, Error, ,
                   "Could not open \"" << mrl << "\"" );
       m_fileOpen = true;
     };
-    ERRORMACRO( av_write_header( m_oc ) >= 0, Error, ,
+    ERRORMACRO( he_av_write_header( m_oc ) >= 0, Error, ,
                 "Error writing header of video \"" << mrl << "\": "
                 << strerror( errno ) );
     m_headerWritten = true;
@@ -184,17 +270,13 @@ void AVOutput::close(void)
     m_videoBuf = NULL;
   };
   if ( m_oc ) {
-    for ( unsigned int i = 0; i < m_oc->nb_streams; i++ ) {
-      av_freep( &m_oc->streams[i]->codec );
-      av_freep( &m_oc->streams[i] );
-    };
     m_audioStream = NULL;
     m_videoStream = NULL;
     if ( m_fileOpen ) {
-      url_fclose( m_oc->pb );
+      he_url_close( m_oc );
       m_fileOpen = false;
     };
-    av_free( m_oc );
+    he_avformat_free_context( m_oc );
     m_oc = NULL;
   };
 }
@@ -515,8 +597,10 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
                    INT2FIX( CODEC_ID_TIFF ) );
   rb_define_const( cRubyClass, "CODEC_ID_GIF",
                    INT2FIX( CODEC_ID_GIF ) );
+#ifdef CODEC_ID_FFH264
   rb_define_const( cRubyClass, "CODEC_ID_FFH264",
                    INT2FIX( CODEC_ID_FFH264 ) );
+#endif
   rb_define_const( cRubyClass, "CODEC_ID_DXA",
                    INT2FIX( CODEC_ID_DXA ) );
   rb_define_const( cRubyClass, "CODEC_ID_DNXHD",
