@@ -51,7 +51,6 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     ERRORMACRO( format != NULL, Error, ,
                 "Could not find suitable output format for \"" << mrl << "\""  );
     m_oc = avformat_alloc_context();
-    // m_oc = av_alloc_format_context();
     ERRORMACRO( m_oc != NULL, Error, , "Failure allocating format context" );
     m_oc->oformat = format;
     snprintf( m_oc->filename, sizeof( m_oc->filename ), "%s", mrl.c_str() );
@@ -87,8 +86,8 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
       if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
         c->flags |= CODEC_FLAG_GLOBAL_HEADER;
     };
-    ERRORMACRO( av_set_parameters( m_oc, NULL ) >= 0, Error, ,
-                "Invalid output format parameters: " << strerror( errno ) );
+    // ERRORMACRO( av_set_parameters( m_oc, NULL ) >= 0, Error, ,
+    //             "Invalid output format parameters: " << strerror( errno ) );
     AVCodec *codec = avcodec_find_encoder( c->codec_id );
     ERRORMACRO( codec != NULL, Error, , "Could not find video codec "
                 << c->codec_id );
@@ -118,11 +117,11 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
 #endif
     };
     if ( !( format->flags & AVFMT_NOFILE ) ) {
-      ERRORMACRO( url_fopen( &m_oc->pb, mrl.c_str(), URL_WRONLY ) >= 0, Error, ,
-                  "Could not open \"" << mrl << "\"" );
+      ERRORMACRO(avio_open(&m_oc->pb, mrl.c_str(), AVIO_FLAG_WRITE) >= 0, Error, ,
+                 "Could not open \"" << mrl << "\"" );
       m_fileOpen = true;
     };
-    ERRORMACRO( av_write_header( m_oc ) >= 0, Error, ,
+    ERRORMACRO( avformat_write_header(m_oc, NULL) >= 0, Error, ,
                 "Error writing header of video \"" << mrl << "\": "
                 << strerror( errno ) );
     m_headerWritten = true;
@@ -191,7 +190,7 @@ void AVOutput::close(void)
     m_audioStream = NULL;
     m_videoStream = NULL;
     if ( m_fileOpen ) {
-      url_fclose( m_oc->pb );
+      avio_close(m_oc->pb);
       m_fileOpen = false;
     };
     av_free( m_oc );
@@ -515,8 +514,10 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
                    INT2FIX( CODEC_ID_TIFF ) );
   rb_define_const( cRubyClass, "CODEC_ID_GIF",
                    INT2FIX( CODEC_ID_GIF ) );
+#ifdef CODEC_ID_FFH264
   rb_define_const( cRubyClass, "CODEC_ID_FFH264",
                    INT2FIX( CODEC_ID_FFH264 ) );
+#endif
   rb_define_const( cRubyClass, "CODEC_ID_DXA",
                    INT2FIX( CODEC_ID_DXA ) );
   rb_define_const( cRubyClass, "CODEC_ID_DNXHD",
