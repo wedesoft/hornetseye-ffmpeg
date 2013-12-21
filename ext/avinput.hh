@@ -22,10 +22,12 @@
 
 #include <boost/shared_ptr.hpp>
 extern "C" {
-#ifdef HAVE_LIBSWSCALE_INCDIR
-  #include <libswscale/swscale.h>
-#else
+#ifndef HAVE_LIBSWSCALE_INCDIR
   #include <ffmpeg/swscale.h>
+#elif HAVE_FFMPEG_LIBSWSCALE_INCDIR
+  #include <ffmpeg/libswscale/swscale.h>
+#else
+  #include <libswscale/swscale.h>
 #endif
 #ifdef HAVE_LIBAVFORMAT_INCDIR
   #include <libavformat/avformat.h>

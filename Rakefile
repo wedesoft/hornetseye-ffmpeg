@@ -7,7 +7,7 @@ require 'rake/loaders/makefile'
 require 'rbconfig'
 
 PKG_NAME = 'hornetseye-ffmpeg'
-PKG_VERSION = '1.1.5'
+PKG_VERSION = '1.1.6'
 CFG = RbConfig::CONFIG
 CXX = ENV[ 'CXX' ] || 'g++'
 RB_FILES = FileList[ 'lib/**/*.rb' ]
@@ -104,10 +104,16 @@ file 'ext/config.h' do |t|
   # need to compile with -D__STDC_CONSTANT_MACROS
   if check_c_header 'libswscale/swscale.h'
     s << "#define HAVE_LIBSWSCALE_INCDIR 1\n"
-  elsif check_c_header 'ffmpeg/swscale.h'
+    s << "#undef HAVE_FFMPEG_LIBSWSCALE_INCDIR 1\n"
+  elsif check_c_header 'ffmpeg/libswscale/swscale.h'
     s << "#undef HAVE_LIBSWSCALE_INCDIR\n"
+    s << "#define HAVE_FFMPEG_LIBSWSCALE_INCDIR 1\n"
   else
-    raise 'Cannot find swscale.h header file'
+    unless check_c_header 'ffmpeg/swscale.h'
+      raise 'Cannot find swscale.h header file'
+    end
+    s << "#undef HAVE_LIBSWSCALE_INCDIR\n"
+    s << "#undef HAVE_FFMPEG_LIBSWSCALE_INCDIR 1\n"
   end
   have_libavformat_incdir = check_c_header 'libavformat/avformat.h'
   if have_libavformat_incdir
