@@ -24,8 +24,6 @@
 extern "C" {
 #ifndef HAVE_LIBSWSCALE_INCDIR
   #include <ffmpeg/swscale.h>
-#elif HAVE_FFMPEG_LIBSWSCALE_INCDIR
-  #include <ffmpeg/libswscale/swscale.h>
 #else
   #include <libswscale/swscale.h>
 #endif
