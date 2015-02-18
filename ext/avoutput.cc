@@ -56,7 +56,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     snprintf( m_oc->filename, sizeof( m_oc->filename ), "%s", mrl.c_str() );
     ERRORMACRO( format->video_codec != CODEC_ID_NONE, Error, ,
                 "Output format does not support video" );
-    m_videoStream = av_new_stream( m_oc, 0 );
+    m_videoStream = avformat_new_stream( m_oc, NULL );
     ERRORMACRO( m_videoStream != NULL, Error, , "Could not allocate video stream" );
     m_videoStream->sample_aspect_ratio.num = aspectRatioNum;
     m_videoStream->sample_aspect_ratio.den = aspectRatioDen;
@@ -75,7 +75,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
       c->flags |= CODEC_FLAG_GLOBAL_HEADER;
     if ( channels > 0 ) {
-      m_audioStream = av_new_stream( m_oc, 0 );
+      m_audioStream = avformat_new_stream( m_oc, NULL );
       ERRORMACRO( m_audioStream != NULL, Error, , "Could not allocate audio stream" );
       AVCodecContext *c = m_audioStream->codec;
       c->codec_id = audioCodec != CODEC_ID_NONE ? audioCodec : format->audio_codec;
@@ -91,7 +91,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     AVCodec *codec = avcodec_find_encoder( c->codec_id );
     ERRORMACRO( codec != NULL, Error, , "Could not find video codec "
                 << c->codec_id );
-    ERRORMACRO( avcodec_open( c, codec ) >= 0, Error, ,
+    ERRORMACRO( avcodec_open2( c, codec, NULL ) >= 0, Error, ,
                 "Error opening video codec \"" << codec->name << "\": "
                 << strerror( errno ) );
     m_videoCodecOpen = true;
@@ -105,7 +105,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
       AVCodec *codec = avcodec_find_encoder( c->codec_id );
       ERRORMACRO( codec != NULL, Error, , "Could not find audio codec "
                   << c->codec_id );
-      ERRORMACRO( avcodec_open( c, codec ) >= 0, Error, ,
+      ERRORMACRO( avcodec_open2( c, codec, NULL ) >= 0, Error, ,
                   "Error opening audio codec \"" << codec->name << "\": "
                   << strerror( errno ) );
       m_audioCodecOpen = true;
@@ -716,10 +716,14 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
                    INT2FIX( CODEC_ID_MACE6 ) );
   rb_define_const( cRubyClass, "CODEC_ID_VMDAUDIO",
                    INT2FIX( CODEC_ID_VMDAUDIO ) );
+#ifdef CODEC_ID_SONIC
   rb_define_const( cRubyClass, "CODEC_ID_SONIC",
                    INT2FIX( CODEC_ID_SONIC ) );
+#endif
+#ifdef CODEC_ID_SONIC_LS
   rb_define_const( cRubyClass, "CODEC_ID_SONIC_LS",
                    INT2FIX( CODEC_ID_SONIC_LS ) );
+#endif
   rb_define_const( cRubyClass, "CODEC_ID_FLAC",
                    INT2FIX( CODEC_ID_FLAC ) );
   rb_define_const( cRubyClass, "CODEC_ID_MP3ADU",
