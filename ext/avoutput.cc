@@ -35,9 +35,9 @@ VALUE AVOutput::cRubyClass = Qnil;
 
 AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
                     int timeBaseNum, int timeBaseDen, int aspectRatioNum,
-                    int aspectRatioDen, enum CodecID videoCodec,
+                    int aspectRatioDen, enum AVCodecID videoCodec,
                     int audioBitRate, int sampleRate, int channels,
-                    enum CodecID audioCodec ) throw (Error):
+                    enum AVCodecID audioCodec ) throw (Error):
   m_mrl( mrl ), m_oc( NULL ), m_videoStream( NULL ), m_audioStream( NULL),
   m_videoCodecOpen( false ), m_audioCodecOpen( false ), m_videoBuf( NULL ),
   m_audioBuf( NULL ), m_fileOpen( false ), m_headerWritten( false ),
@@ -818,10 +818,10 @@ VALUE AVOutput::wrapNew( VALUE rbClass, VALUE rbMRL, VALUE rbBitRate, VALUE rbWi
                                    NUM2INT( rbTimeBaseNum ), NUM2INT( rbTimeBaseDen ),
                                    NUM2INT( rbAspectRatioNum ),
                                    NUM2INT( rbAspectRatioDen ),
-                                   (enum CodecID)NUM2INT( rbVideoCodec ),
+                                   (enum AVCodecID)NUM2INT( rbVideoCodec ),
                                    NUM2INT( rbAudioBitRate ), NUM2INT( rbSampleRate ),
                                    NUM2INT( rbChannels ),
-                                   (enum CodecID)NUM2INT( rbAudioCodec ) ) );
+                                   (enum AVCodecID)NUM2INT( rbAudioCodec ) ) );
     retVal = Data_Wrap_Struct( rbClass, 0, deleteRubyObject,
                                new AVOutputPtr( ptr ) );
   } catch ( exception &e ) {
