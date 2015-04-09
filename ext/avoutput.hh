@@ -43,9 +43,9 @@ class AVOutput
 public:
   AVOutput( const std::string &mrl, int videoBitRate, int width, int height,
             int timeBaseNum, int timeBaseDen, int aspectRatioNum,
-            int aspectRatioDen, enum CodecID videoCodec,
+            int aspectRatioDen, enum AVCodecID videoCodec,
             int audioBitRate, int sampleRate, int channels,
-            enum CodecID audioCodec ) throw (Error);
+            enum AVCodecID audioCodec ) throw (Error);
   virtual ~AVOutput(void);
   void close(void);
   AVRational videoTimeBase(void) throw (Error);
