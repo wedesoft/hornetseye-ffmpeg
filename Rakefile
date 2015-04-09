@@ -144,7 +144,7 @@ end
 
 begin
   require 'rubygems'
-  require "bundler/gem_tasks"
+  require "rubygems/builder"
   $SPEC = Gem::Specification.new do |s|
     s.name = PKG_NAME
     s.version = PKG_VERSION
