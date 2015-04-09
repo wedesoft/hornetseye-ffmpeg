@@ -2,4 +2,4 @@
 *.o
 *.so
 config.h
-
+.idea

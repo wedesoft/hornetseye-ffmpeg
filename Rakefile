@@ -141,9 +141,10 @@ Rake::PackageTask.new PKG_NAME, PKG_VERSION do |p|
   p.package_files = PKG_FILES
 end
 
+
 begin
   require 'rubygems'
-  require 'rubygems/builder'
+  require "bundler/gem_tasks"
   $SPEC = Gem::Specification.new do |s|
     s.name = PKG_NAME
     s.version = PKG_VERSION
