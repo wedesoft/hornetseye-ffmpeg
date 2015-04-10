@@ -70,8 +70,6 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
                                      PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0 );
       m_vFrame = avcodec_alloc_frame();
       ERRORMACRO(m_vFrame, Error, , "Error allocating frame");
-      m_aFrame = avcodec_alloc_frame();
-      ERRORMACRO(m_aFrame, Error, , "Error allocating frame");
     };
     if ( m_audioStream >= 0 )
       m_audioDec = m_ic->streams[ m_audioStream ]->codec;
@@ -85,6 +83,8 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
         ERRORMACRO( false, Error, , "Error opening audio codec for file \""
                     << mrl << "\": " << strerror( errno ) );
       };
+      m_aFrame = avcodec_alloc_frame();
+      ERRORMACRO(m_aFrame, Error, , "Error allocating frame");
     };
   } catch ( Error &e ) {
     close();
