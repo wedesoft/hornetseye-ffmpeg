@@ -54,14 +54,14 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     ERRORMACRO( m_oc != NULL, Error, , "Failure allocating format context" );
     m_oc->oformat = format;
     snprintf( m_oc->filename, sizeof( m_oc->filename ), "%s", mrl.c_str() );
-    ERRORMACRO( format->video_codec != CODEC_ID_NONE, Error, ,
+    ERRORMACRO( format->video_codec != AV_CODEC_ID_NONE, Error, ,
                 "Output format does not support video" );
     m_videoStream = avformat_new_stream( m_oc, NULL );
     ERRORMACRO( m_videoStream != NULL, Error, , "Could not allocate video stream" );
     m_videoStream->sample_aspect_ratio.num = aspectRatioNum;
     m_videoStream->sample_aspect_ratio.den = aspectRatioDen;
     AVCodecContext *c = m_videoStream->codec;
-    c->codec_id = videoCodec != CODEC_ID_NONE ? videoCodec : format->video_codec;
+    c->codec_id = videoCodec != AV_CODEC_ID_NONE ? videoCodec : format->video_codec;
     c->codec_type = AVMEDIA_TYPE_VIDEO;
     c->bit_rate = videoBitRate;
     c->width = width;
@@ -69,7 +69,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
     c->time_base.num = timeBaseNum;
     c->time_base.den = timeBaseDen;
     c->gop_size = 12;
-    c->pix_fmt = PIX_FMT_YUV420P;
+    c->pix_fmt = AV_PIX_FMT_YUV420P;
     c->sample_aspect_ratio.num = aspectRatioNum;
     c->sample_aspect_ratio.den = aspectRatioDen;
     if ( m_oc->oformat->flags & AVFMT_GLOBALHEADER )
@@ -78,7 +78,7 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
       m_audioStream = avformat_new_stream( m_oc, NULL );
       ERRORMACRO( m_audioStream != NULL, Error, , "Could not allocate audio stream" );
       AVCodecContext *c = m_audioStream->codec;
-      c->codec_id = audioCodec != CODEC_ID_NONE ? audioCodec : format->audio_codec;
+      c->codec_id = audioCodec != AV_CODEC_ID_NONE ? audioCodec : format->audio_codec;
       c->codec_type = AVMEDIA_TYPE_AUDIO;
       c->bit_rate = audioBitRate;
       c->sample_rate = sampleRate;
@@ -125,15 +125,15 @@ AVOutput::AVOutput( const string &mrl, int videoBitRate, int width, int height,
                 "Error writing header of video \"" << mrl << "\": "
                 << strerror( errno ) );
     m_headerWritten = true;
-    m_swsContext = sws_getContext( width, height, PIX_FMT_YUV420P,
-                                   width, height, PIX_FMT_YUV420P,
+    m_swsContext = sws_getContext( width, height, AV_PIX_FMT_YUV420P,
+                                   width, height, AV_PIX_FMT_YUV420P,
                                    SWS_FAST_BILINEAR, 0, 0, 0 );
-    m_frame = avcodec_alloc_frame();
+    m_frame = av_frame_alloc();
     ERRORMACRO( m_frame, Error, , "Error allocating frame" );
-    int size = avpicture_get_size( PIX_FMT_YUV420P, width, height );
+    int size = avpicture_get_size( AV_PIX_FMT_YUV420P, width, height );
     char *frameBuffer = (char *)av_malloc( size );
     ERRORMACRO( frameBuffer, Error, , "Error allocating memory buffer for frame" );
-    avpicture_fill( (AVPicture *)m_frame, (uint8_t *)frameBuffer, PIX_FMT_YUV420P,
+    avpicture_fill( (AVPicture *)m_frame, (uint8_t *)frameBuffer, AV_PIX_FMT_YUV420P,
                     width, height );
   } catch ( Error &e ) {
     close();
@@ -259,8 +259,8 @@ void AVOutput::writeVideo( FramePtr frame ) throw (Error)
     picture.linesize[2] = width2a;
     sws_scale( m_swsContext, picture.data, picture.linesize, 0,
                c->height, m_frame->data, m_frame->linesize );
-    int packetSize = avcodec_encode_video( c, (uint8_t *)m_videoBuf,
-                                           VIDEO_BUF_SIZE, m_frame );
+    int packetSize = avcodec_encode_video2( c, (uint8_t *)m_videoBuf,
+                                            VIDEO_BUF_SIZE, m_frame );
     ERRORMACRO( packetSize >= 0, Error, , "Error encoding video frame" );
     if ( packetSize > 0 ) {
       AVPacket packet;
@@ -314,480 +314,480 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
   cRubyClass = rb_define_class_under( rbModule, "AVOutput", rb_cObject );
   rb_define_singleton_method( cRubyClass, "new",
                               RUBY_METHOD_FUNC( wrapNew ), 13 );
-  rb_define_const( cRubyClass, "CODEC_ID_NONE",
-                   INT2FIX( CODEC_ID_NONE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MPEG1VIDEO",
-                   INT2FIX( CODEC_ID_MPEG1VIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MPEG2VIDEO",
-                   INT2FIX( CODEC_ID_MPEG2VIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MPEG2VIDEO_XVMC",
-                   INT2FIX( CODEC_ID_MPEG2VIDEO_XVMC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_H261",
-                   INT2FIX( CODEC_ID_H261 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_H263",
-                   INT2FIX( CODEC_ID_H263 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_RV10",
-                   INT2FIX( CODEC_ID_RV10 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_RV20",
-                   INT2FIX( CODEC_ID_RV20 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MJPEG",
-                   INT2FIX( CODEC_ID_MJPEG ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MJPEGB",
-                   INT2FIX( CODEC_ID_MJPEGB ) );
-  rb_define_const( cRubyClass, "CODEC_ID_LJPEG",
-                   INT2FIX( CODEC_ID_LJPEG ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SP5X",
-                   INT2FIX( CODEC_ID_SP5X ) );
-  rb_define_const( cRubyClass, "CODEC_ID_JPEGLS",
-                   INT2FIX( CODEC_ID_JPEGLS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MPEG4",
-                   INT2FIX( CODEC_ID_MPEG4 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_RAWVIDEO",
-                   INT2FIX( CODEC_ID_RAWVIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MSMPEG4V1",
-                   INT2FIX( CODEC_ID_MSMPEG4V1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MSMPEG4V2",
-                   INT2FIX( CODEC_ID_MSMPEG4V2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MSMPEG4V3",
-                   INT2FIX( CODEC_ID_MSMPEG4V3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WMV1",
-                   INT2FIX( CODEC_ID_WMV1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WMV2",
-                   INT2FIX( CODEC_ID_WMV2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_H263P",
-                   INT2FIX( CODEC_ID_H263P ) );
-  rb_define_const( cRubyClass, "CODEC_ID_H263I",
-                   INT2FIX( CODEC_ID_H263I ) );
-  rb_define_const( cRubyClass, "CODEC_ID_FLV1",
-                   INT2FIX( CODEC_ID_FLV1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SVQ1",
-                   INT2FIX( CODEC_ID_SVQ1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SVQ3",
-                   INT2FIX( CODEC_ID_SVQ3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_DVVIDEO",
-                   INT2FIX( CODEC_ID_DVVIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_HUFFYUV",
-                   INT2FIX( CODEC_ID_HUFFYUV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_CYUV",
-                   INT2FIX( CODEC_ID_CYUV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_H264",
-                   INT2FIX( CODEC_ID_H264 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_INDEO3",
-                   INT2FIX( CODEC_ID_INDEO3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VP3",
-                   INT2FIX( CODEC_ID_VP3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_THEORA",
-                   INT2FIX( CODEC_ID_THEORA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ASV1",
-                   INT2FIX( CODEC_ID_ASV1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ASV2",
-                   INT2FIX( CODEC_ID_ASV2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_FFV1",
-                   INT2FIX( CODEC_ID_FFV1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_4XM",
-                   INT2FIX( CODEC_ID_4XM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VCR1",
-                   INT2FIX( CODEC_ID_VCR1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_CLJR",
-                   INT2FIX( CODEC_ID_CLJR ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MDEC",
-                   INT2FIX( CODEC_ID_MDEC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ROQ",
-                   INT2FIX( CODEC_ID_ROQ ) );
-  rb_define_const( cRubyClass, "CODEC_ID_INTERPLAY_VIDEO",
-                   INT2FIX( CODEC_ID_INTERPLAY_VIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_XAN_WC3",
-                   INT2FIX( CODEC_ID_XAN_WC3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_XAN_WC4",
-                   INT2FIX( CODEC_ID_XAN_WC4 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_RPZA",
-                   INT2FIX( CODEC_ID_RPZA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_CINEPAK",
-                   INT2FIX( CODEC_ID_CINEPAK ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WS_VQA",
-                   INT2FIX( CODEC_ID_WS_VQA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MSRLE",
-                   INT2FIX( CODEC_ID_MSRLE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MSVIDEO1",
-                   INT2FIX( CODEC_ID_MSVIDEO1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_IDCIN",
-                   INT2FIX( CODEC_ID_IDCIN ) );
-  rb_define_const( cRubyClass, "CODEC_ID_8BPS",
-                   INT2FIX( CODEC_ID_8BPS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SMC",
-                   INT2FIX( CODEC_ID_SMC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_FLIC",
-                   INT2FIX( CODEC_ID_FLIC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TRUEMOTION1",
-                   INT2FIX( CODEC_ID_TRUEMOTION1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VMDVIDEO",
-                   INT2FIX( CODEC_ID_VMDVIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MSZH",
-                   INT2FIX( CODEC_ID_MSZH ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ZLIB",
-                   INT2FIX( CODEC_ID_ZLIB ) );
-  rb_define_const( cRubyClass, "CODEC_ID_QTRLE",
-                   INT2FIX( CODEC_ID_QTRLE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SNOW",
-                   INT2FIX( CODEC_ID_SNOW ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TSCC",
-                   INT2FIX( CODEC_ID_TSCC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ULTI",
-                   INT2FIX( CODEC_ID_ULTI ) );
-  rb_define_const( cRubyClass, "CODEC_ID_QDRAW",
-                   INT2FIX( CODEC_ID_QDRAW ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VIXL",
-                   INT2FIX( CODEC_ID_VIXL ) );
-  rb_define_const( cRubyClass, "CODEC_ID_QPEG",
-                   INT2FIX( CODEC_ID_QPEG ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PNG",
-                   INT2FIX( CODEC_ID_PNG ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PPM",
-                   INT2FIX( CODEC_ID_PPM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PBM",
-                   INT2FIX( CODEC_ID_PBM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PGM",
-                   INT2FIX( CODEC_ID_PGM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PGMYUV",
-                   INT2FIX( CODEC_ID_PGMYUV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PAM",
-                   INT2FIX( CODEC_ID_PAM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_FFVHUFF",
-                   INT2FIX( CODEC_ID_FFVHUFF ) );
-  rb_define_const( cRubyClass, "CODEC_ID_RV30",
-                   INT2FIX( CODEC_ID_RV30 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_RV40",
-                   INT2FIX( CODEC_ID_RV40 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VC1",
-                   INT2FIX( CODEC_ID_VC1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WMV3",
-                   INT2FIX( CODEC_ID_WMV3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_LOCO",
-                   INT2FIX( CODEC_ID_LOCO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WNV1",
-                   INT2FIX( CODEC_ID_WNV1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_AASC",
-                   INT2FIX( CODEC_ID_AASC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_INDEO2",
-                   INT2FIX( CODEC_ID_INDEO2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_FRAPS",
-                   INT2FIX( CODEC_ID_FRAPS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TRUEMOTION2",
-                   INT2FIX( CODEC_ID_TRUEMOTION2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_BMP",
-                   INT2FIX( CODEC_ID_BMP ) );
-  rb_define_const( cRubyClass, "CODEC_ID_CSCD",
-                   INT2FIX( CODEC_ID_CSCD ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MMVIDEO",
-                   INT2FIX( CODEC_ID_MMVIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ZMBV",
-                   INT2FIX( CODEC_ID_ZMBV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_AVS",
-                   INT2FIX( CODEC_ID_AVS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SMACKVIDEO",
-                   INT2FIX( CODEC_ID_SMACKVIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_NUV",
-                   INT2FIX( CODEC_ID_NUV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_KMVC",
-                   INT2FIX( CODEC_ID_KMVC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_FLASHSV",
-                   INT2FIX( CODEC_ID_FLASHSV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_CAVS",
-                   INT2FIX( CODEC_ID_CAVS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_JPEG2000",
-                   INT2FIX( CODEC_ID_JPEG2000 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VMNC",
-                   INT2FIX( CODEC_ID_VMNC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VP5",
-                   INT2FIX( CODEC_ID_VP5 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VP6",
-                   INT2FIX( CODEC_ID_VP6 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VP6F",
-                   INT2FIX( CODEC_ID_VP6F ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TARGA",
-                   INT2FIX( CODEC_ID_TARGA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_DSICINVIDEO",
-                   INT2FIX( CODEC_ID_DSICINVIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TIERTEXSEQVIDEO",
-                   INT2FIX( CODEC_ID_TIERTEXSEQVIDEO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TIFF",
-                   INT2FIX( CODEC_ID_TIFF ) );
-  rb_define_const( cRubyClass, "CODEC_ID_GIF",
-                   INT2FIX( CODEC_ID_GIF ) );
-#ifdef CODEC_ID_FFH264
-  rb_define_const( cRubyClass, "CODEC_ID_FFH264",
-                   INT2FIX( CODEC_ID_FFH264 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_NONE",
+                   INT2FIX( AV_CODEC_ID_NONE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MPEG1VIDEO",
+                   INT2FIX( AV_CODEC_ID_MPEG1VIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MPEG2VIDEO",
+                   INT2FIX( AV_CODEC_ID_MPEG2VIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MPEG2VIDEO_XVMC",
+                   INT2FIX( AV_CODEC_ID_MPEG2VIDEO_XVMC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_H261",
+                   INT2FIX( AV_CODEC_ID_H261 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_H263",
+                   INT2FIX( AV_CODEC_ID_H263 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_RV10",
+                   INT2FIX( AV_CODEC_ID_RV10 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_RV20",
+                   INT2FIX( AV_CODEC_ID_RV20 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MJPEG",
+                   INT2FIX( AV_CODEC_ID_MJPEG ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MJPEGB",
+                   INT2FIX( AV_CODEC_ID_MJPEGB ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_LJPEG",
+                   INT2FIX( AV_CODEC_ID_LJPEG ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SP5X",
+                   INT2FIX( AV_CODEC_ID_SP5X ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_JPEGLS",
+                   INT2FIX( AV_CODEC_ID_JPEGLS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MPEG4",
+                   INT2FIX( AV_CODEC_ID_MPEG4 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_RAWVIDEO",
+                   INT2FIX( AV_CODEC_ID_RAWVIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MSMPEG4V1",
+                   INT2FIX( AV_CODEC_ID_MSMPEG4V1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MSMPEG4V2",
+                   INT2FIX( AV_CODEC_ID_MSMPEG4V2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MSMPEG4V3",
+                   INT2FIX( AV_CODEC_ID_MSMPEG4V3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WMV1",
+                   INT2FIX( AV_CODEC_ID_WMV1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WMV2",
+                   INT2FIX( AV_CODEC_ID_WMV2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_H263P",
+                   INT2FIX( AV_CODEC_ID_H263P ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_H263I",
+                   INT2FIX( AV_CODEC_ID_H263I ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_FLV1",
+                   INT2FIX( AV_CODEC_ID_FLV1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SVQ1",
+                   INT2FIX( AV_CODEC_ID_SVQ1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SVQ3",
+                   INT2FIX( AV_CODEC_ID_SVQ3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_DVVIDEO",
+                   INT2FIX( AV_CODEC_ID_DVVIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_HUFFYUV",
+                   INT2FIX( AV_CODEC_ID_HUFFYUV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_CYUV",
+                   INT2FIX( AV_CODEC_ID_CYUV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_H264",
+                   INT2FIX( AV_CODEC_ID_H264 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_INDEO3",
+                   INT2FIX( AV_CODEC_ID_INDEO3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VP3",
+                   INT2FIX( AV_CODEC_ID_VP3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_THEORA",
+                   INT2FIX( AV_CODEC_ID_THEORA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ASV1",
+                   INT2FIX( AV_CODEC_ID_ASV1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ASV2",
+                   INT2FIX( AV_CODEC_ID_ASV2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_FFV1",
+                   INT2FIX( AV_CODEC_ID_FFV1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_4XM",
+                   INT2FIX( AV_CODEC_ID_4XM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VCR1",
+                   INT2FIX( AV_CODEC_ID_VCR1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_CLJR",
+                   INT2FIX( AV_CODEC_ID_CLJR ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MDEC",
+                   INT2FIX( AV_CODEC_ID_MDEC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ROQ",
+                   INT2FIX( AV_CODEC_ID_ROQ ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_INTERPLAY_VIDEO",
+                   INT2FIX( AV_CODEC_ID_INTERPLAY_VIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_XAN_WC3",
+                   INT2FIX( AV_CODEC_ID_XAN_WC3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_XAN_WC4",
+                   INT2FIX( AV_CODEC_ID_XAN_WC4 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_RPZA",
+                   INT2FIX( AV_CODEC_ID_RPZA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_CINEPAK",
+                   INT2FIX( AV_CODEC_ID_CINEPAK ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WS_VQA",
+                   INT2FIX( AV_CODEC_ID_WS_VQA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MSRLE",
+                   INT2FIX( AV_CODEC_ID_MSRLE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MSVIDEO1",
+                   INT2FIX( AV_CODEC_ID_MSVIDEO1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_IDCIN",
+                   INT2FIX( AV_CODEC_ID_IDCIN ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_8BPS",
+                   INT2FIX( AV_CODEC_ID_8BPS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SMC",
+                   INT2FIX( AV_CODEC_ID_SMC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_FLIC",
+                   INT2FIX( AV_CODEC_ID_FLIC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TRUEMOTION1",
+                   INT2FIX( AV_CODEC_ID_TRUEMOTION1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VMDVIDEO",
+                   INT2FIX( AV_CODEC_ID_VMDVIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MSZH",
+                   INT2FIX( AV_CODEC_ID_MSZH ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ZLIB",
+                   INT2FIX( AV_CODEC_ID_ZLIB ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_QTRLE",
+                   INT2FIX( AV_CODEC_ID_QTRLE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SNOW",
+                   INT2FIX( AV_CODEC_ID_SNOW ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TSCC",
+                   INT2FIX( AV_CODEC_ID_TSCC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ULTI",
+                   INT2FIX( AV_CODEC_ID_ULTI ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_QDRAW",
+                   INT2FIX( AV_CODEC_ID_QDRAW ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VIXL",
+                   INT2FIX( AV_CODEC_ID_VIXL ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_QPEG",
+                   INT2FIX( AV_CODEC_ID_QPEG ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PNG",
+                   INT2FIX( AV_CODEC_ID_PNG ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PPM",
+                   INT2FIX( AV_CODEC_ID_PPM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PBM",
+                   INT2FIX( AV_CODEC_ID_PBM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PGM",
+                   INT2FIX( AV_CODEC_ID_PGM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PGMYUV",
+                   INT2FIX( AV_CODEC_ID_PGMYUV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PAM",
+                   INT2FIX( AV_CODEC_ID_PAM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_FFVHUFF",
+                   INT2FIX( AV_CODEC_ID_FFVHUFF ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_RV30",
+                   INT2FIX( AV_CODEC_ID_RV30 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_RV40",
+                   INT2FIX( AV_CODEC_ID_RV40 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VC1",
+                   INT2FIX( AV_CODEC_ID_VC1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WMV3",
+                   INT2FIX( AV_CODEC_ID_WMV3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_LOCO",
+                   INT2FIX( AV_CODEC_ID_LOCO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WNV1",
+                   INT2FIX( AV_CODEC_ID_WNV1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_AASC",
+                   INT2FIX( AV_CODEC_ID_AASC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_INDEO2",
+                   INT2FIX( AV_CODEC_ID_INDEO2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_FRAPS",
+                   INT2FIX( AV_CODEC_ID_FRAPS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TRUEMOTION2",
+                   INT2FIX( AV_CODEC_ID_TRUEMOTION2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_BMP",
+                   INT2FIX( AV_CODEC_ID_BMP ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_CSCD",
+                   INT2FIX( AV_CODEC_ID_CSCD ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MMVIDEO",
+                   INT2FIX( AV_CODEC_ID_MMVIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ZMBV",
+                   INT2FIX( AV_CODEC_ID_ZMBV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_AVS",
+                   INT2FIX( AV_CODEC_ID_AVS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SMACKVIDEO",
+                   INT2FIX( AV_CODEC_ID_SMACKVIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_NUV",
+                   INT2FIX( AV_CODEC_ID_NUV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_KMVC",
+                   INT2FIX( AV_CODEC_ID_KMVC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_FLASHSV",
+                   INT2FIX( AV_CODEC_ID_FLASHSV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_CAVS",
+                   INT2FIX( AV_CODEC_ID_CAVS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_JPEG2000",
+                   INT2FIX( AV_CODEC_ID_JPEG2000 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VMNC",
+                   INT2FIX( AV_CODEC_ID_VMNC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VP5",
+                   INT2FIX( AV_CODEC_ID_VP5 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VP6",
+                   INT2FIX( AV_CODEC_ID_VP6 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VP6F",
+                   INT2FIX( AV_CODEC_ID_VP6F ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TARGA",
+                   INT2FIX( AV_CODEC_ID_TARGA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_DSICINVIDEO",
+                   INT2FIX( AV_CODEC_ID_DSICINVIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TIERTEXSEQVIDEO",
+                   INT2FIX( AV_CODEC_ID_TIERTEXSEQVIDEO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TIFF",
+                   INT2FIX( AV_CODEC_ID_TIFF ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_GIF",
+                   INT2FIX( AV_CODEC_ID_GIF ) );
+#ifdef AV_CODEC_ID_FFH264
+  rb_define_const( cRubyClass, "AV_CODEC_ID_FFH264",
+                   INT2FIX( AV_CODEC_ID_FFH264 ) );
 #endif
-  rb_define_const( cRubyClass, "CODEC_ID_DXA",
-                   INT2FIX( CODEC_ID_DXA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_DNXHD",
-                   INT2FIX( CODEC_ID_DNXHD ) );
-  rb_define_const( cRubyClass, "CODEC_ID_THP",
-                   INT2FIX( CODEC_ID_THP ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SGI",
-                   INT2FIX( CODEC_ID_SGI ) );
-  rb_define_const( cRubyClass, "CODEC_ID_C93",
-                   INT2FIX( CODEC_ID_C93 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_BETHSOFTVID",
-                   INT2FIX( CODEC_ID_BETHSOFTVID ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PTX",
-                   INT2FIX( CODEC_ID_PTX ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TXD",
-                   INT2FIX( CODEC_ID_TXD ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VP6A",
-                   INT2FIX( CODEC_ID_VP6A ) );
-  rb_define_const( cRubyClass, "CODEC_ID_AMV",
-                   INT2FIX( CODEC_ID_AMV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VB",
-                   INT2FIX( CODEC_ID_VB ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCX",
-                   INT2FIX( CODEC_ID_PCX ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SUNRAST",
-                   INT2FIX( CODEC_ID_SUNRAST ) );
-  rb_define_const( cRubyClass, "CODEC_ID_INDEO4",
-                   INT2FIX( CODEC_ID_INDEO4 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_INDEO5",
-                   INT2FIX( CODEC_ID_INDEO5 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MIMIC",
-                   INT2FIX( CODEC_ID_MIMIC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_RL2",
-                   INT2FIX( CODEC_ID_RL2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_8SVX_EXP",
-                   INT2FIX( CODEC_ID_8SVX_EXP ) );
-  rb_define_const( cRubyClass, "CODEC_ID_8SVX_FIB",
-                   INT2FIX( CODEC_ID_8SVX_FIB ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ESCAPE124",
-                   INT2FIX( CODEC_ID_ESCAPE124 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_DIRAC",
-                   INT2FIX( CODEC_ID_DIRAC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_BFI",
-                   INT2FIX( CODEC_ID_BFI ) );
-  rb_define_const( cRubyClass, "CODEC_ID_CMV",
-                   INT2FIX( CODEC_ID_CMV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MOTIONPIXELS",
-                   INT2FIX( CODEC_ID_MOTIONPIXELS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TGV",
-                   INT2FIX( CODEC_ID_TGV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TGQ",
-                   INT2FIX( CODEC_ID_TGQ ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TQI",
-                   INT2FIX( CODEC_ID_TQI ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_S16LE",
-                   INT2FIX( CODEC_ID_PCM_S16LE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_S16BE",
-                   INT2FIX( CODEC_ID_PCM_S16BE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_U16LE",
-                   INT2FIX( CODEC_ID_PCM_U16LE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_U16BE",
-                   INT2FIX( CODEC_ID_PCM_U16BE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_S8",
-                   INT2FIX( CODEC_ID_PCM_S8 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_U8",
-                   INT2FIX( CODEC_ID_PCM_U8 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_MULAW",
-                   INT2FIX( CODEC_ID_PCM_MULAW ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_ALAW",
-                   INT2FIX( CODEC_ID_PCM_ALAW ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_S32LE",
-                   INT2FIX( CODEC_ID_PCM_S32LE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_S32BE",
-                   INT2FIX( CODEC_ID_PCM_S32BE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_U32LE",
-                   INT2FIX( CODEC_ID_PCM_U32LE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_U32BE",
-                   INT2FIX( CODEC_ID_PCM_U32BE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_S24LE",
-                   INT2FIX( CODEC_ID_PCM_S24LE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_S24BE",
-                   INT2FIX( CODEC_ID_PCM_S24BE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_U24LE",
-                   INT2FIX( CODEC_ID_PCM_U24LE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_U24BE",
-                   INT2FIX( CODEC_ID_PCM_U24BE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_S24DAUD",
-                   INT2FIX( CODEC_ID_PCM_S24DAUD ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_ZORK",
-                   INT2FIX( CODEC_ID_PCM_ZORK ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_S16LE_PLANAR",
-                   INT2FIX( CODEC_ID_PCM_S16LE_PLANAR ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_DVD",
-                   INT2FIX( CODEC_ID_PCM_DVD ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_F32BE",
-                   INT2FIX( CODEC_ID_PCM_F32BE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_F32LE",
-                   INT2FIX( CODEC_ID_PCM_F32LE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_F64BE",
-                   INT2FIX( CODEC_ID_PCM_F64BE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_PCM_F64LE",
-                   INT2FIX( CODEC_ID_PCM_F64LE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_QT",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_QT ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_WAV",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_WAV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_DK3",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_DK3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_DK4",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_DK4 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_WS",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_WS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_SMJPEG",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_SMJPEG ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_MS",
-                   INT2FIX( CODEC_ID_ADPCM_MS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_4XM",
-                   INT2FIX( CODEC_ID_ADPCM_4XM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_XA",
-                   INT2FIX( CODEC_ID_ADPCM_XA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_ADX",
-                   INT2FIX( CODEC_ID_ADPCM_ADX ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_EA",
-                   INT2FIX( CODEC_ID_ADPCM_EA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_G726",
-                   INT2FIX( CODEC_ID_ADPCM_G726 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_CT",
-                   INT2FIX( CODEC_ID_ADPCM_CT ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_SWF",
-                   INT2FIX( CODEC_ID_ADPCM_SWF ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_YAMAHA",
-                   INT2FIX( CODEC_ID_ADPCM_YAMAHA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_SBPRO_4",
-                   INT2FIX( CODEC_ID_ADPCM_SBPRO_4 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_SBPRO_3",
-                   INT2FIX( CODEC_ID_ADPCM_SBPRO_3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_SBPRO_2",
-                   INT2FIX( CODEC_ID_ADPCM_SBPRO_2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_THP",
-                   INT2FIX( CODEC_ID_ADPCM_THP ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_AMV",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_AMV ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_EA_R1",
-                   INT2FIX( CODEC_ID_ADPCM_EA_R1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_EA_R3",
-                   INT2FIX( CODEC_ID_ADPCM_EA_R3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_EA_R2",
-                   INT2FIX( CODEC_ID_ADPCM_EA_R2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_EA_SEAD",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_EA_SEAD ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_EA_EACS",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_EA_EACS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_EA_XAS",
-                   INT2FIX( CODEC_ID_ADPCM_EA_XAS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_EA_MAXIS_XA",
-                   INT2FIX( CODEC_ID_ADPCM_EA_MAXIS_XA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ADPCM_IMA_ISS",
-                   INT2FIX( CODEC_ID_ADPCM_IMA_ISS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_AMR_NB",
-                   INT2FIX( CODEC_ID_AMR_NB ) );
-  rb_define_const( cRubyClass, "CODEC_ID_AMR_WB",
-                   INT2FIX( CODEC_ID_AMR_WB ) );
-  rb_define_const( cRubyClass, "CODEC_ID_RA_144",
-                   INT2FIX( CODEC_ID_RA_144 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_RA_288",
-                   INT2FIX( CODEC_ID_RA_288 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ROQ_DPCM",
-                   INT2FIX( CODEC_ID_ROQ_DPCM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_INTERPLAY_DPCM",
-                   INT2FIX( CODEC_ID_INTERPLAY_DPCM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_XAN_DPCM",
-                   INT2FIX( CODEC_ID_XAN_DPCM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SOL_DPCM",
-                   INT2FIX( CODEC_ID_SOL_DPCM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MP2",
-                   INT2FIX( CODEC_ID_MP2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MP3",
-                   INT2FIX( CODEC_ID_MP3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_AAC",
-                   INT2FIX( CODEC_ID_AAC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_AC3",
-                   INT2FIX( CODEC_ID_AC3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_DTS",
-                   INT2FIX( CODEC_ID_DTS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VORBIS",
-                   INT2FIX( CODEC_ID_VORBIS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_DVAUDIO",
-                   INT2FIX( CODEC_ID_DVAUDIO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WMAV1",
-                   INT2FIX( CODEC_ID_WMAV1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WMAV2",
-                   INT2FIX( CODEC_ID_WMAV2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MACE3",
-                   INT2FIX( CODEC_ID_MACE3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MACE6",
-                   INT2FIX( CODEC_ID_MACE6 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VMDAUDIO",
-                   INT2FIX( CODEC_ID_VMDAUDIO ) );
-#ifdef CODEC_ID_SONIC
-  rb_define_const( cRubyClass, "CODEC_ID_SONIC",
-                   INT2FIX( CODEC_ID_SONIC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_DXA",
+                   INT2FIX( AV_CODEC_ID_DXA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_DNXHD",
+                   INT2FIX( AV_CODEC_ID_DNXHD ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_THP",
+                   INT2FIX( AV_CODEC_ID_THP ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SGI",
+                   INT2FIX( AV_CODEC_ID_SGI ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_C93",
+                   INT2FIX( AV_CODEC_ID_C93 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_BETHSOFTVID",
+                   INT2FIX( AV_CODEC_ID_BETHSOFTVID ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PTX",
+                   INT2FIX( AV_CODEC_ID_PTX ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TXD",
+                   INT2FIX( AV_CODEC_ID_TXD ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VP6A",
+                   INT2FIX( AV_CODEC_ID_VP6A ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_AMV",
+                   INT2FIX( AV_CODEC_ID_AMV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VB",
+                   INT2FIX( AV_CODEC_ID_VB ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCX",
+                   INT2FIX( AV_CODEC_ID_PCX ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SUNRAST",
+                   INT2FIX( AV_CODEC_ID_SUNRAST ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_INDEO4",
+                   INT2FIX( AV_CODEC_ID_INDEO4 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_INDEO5",
+                   INT2FIX( AV_CODEC_ID_INDEO5 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MIMIC",
+                   INT2FIX( AV_CODEC_ID_MIMIC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_RL2",
+                   INT2FIX( AV_CODEC_ID_RL2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_8SVX_EXP",
+                   INT2FIX( AV_CODEC_ID_8SVX_EXP ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_8SVX_FIB",
+                   INT2FIX( AV_CODEC_ID_8SVX_FIB ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ESCAPE124",
+                   INT2FIX( AV_CODEC_ID_ESCAPE124 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_DIRAC",
+                   INT2FIX( AV_CODEC_ID_DIRAC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_BFI",
+                   INT2FIX( AV_CODEC_ID_BFI ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_CMV",
+                   INT2FIX( AV_CODEC_ID_CMV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MOTIONPIXELS",
+                   INT2FIX( AV_CODEC_ID_MOTIONPIXELS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TGV",
+                   INT2FIX( AV_CODEC_ID_TGV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TGQ",
+                   INT2FIX( AV_CODEC_ID_TGQ ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TQI",
+                   INT2FIX( AV_CODEC_ID_TQI ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_S16LE",
+                   INT2FIX( AV_CODEC_ID_PCM_S16LE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_S16BE",
+                   INT2FIX( AV_CODEC_ID_PCM_S16BE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_U16LE",
+                   INT2FIX( AV_CODEC_ID_PCM_U16LE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_U16BE",
+                   INT2FIX( AV_CODEC_ID_PCM_U16BE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_S8",
+                   INT2FIX( AV_CODEC_ID_PCM_S8 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_U8",
+                   INT2FIX( AV_CODEC_ID_PCM_U8 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_MULAW",
+                   INT2FIX( AV_CODEC_ID_PCM_MULAW ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_ALAW",
+                   INT2FIX( AV_CODEC_ID_PCM_ALAW ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_S32LE",
+                   INT2FIX( AV_CODEC_ID_PCM_S32LE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_S32BE",
+                   INT2FIX( AV_CODEC_ID_PCM_S32BE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_U32LE",
+                   INT2FIX( AV_CODEC_ID_PCM_U32LE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_U32BE",
+                   INT2FIX( AV_CODEC_ID_PCM_U32BE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_S24LE",
+                   INT2FIX( AV_CODEC_ID_PCM_S24LE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_S24BE",
+                   INT2FIX( AV_CODEC_ID_PCM_S24BE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_U24LE",
+                   INT2FIX( AV_CODEC_ID_PCM_U24LE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_U24BE",
+                   INT2FIX( AV_CODEC_ID_PCM_U24BE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_S24DAUD",
+                   INT2FIX( AV_CODEC_ID_PCM_S24DAUD ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_ZORK",
+                   INT2FIX( AV_CODEC_ID_PCM_ZORK ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_S16LE_PLANAR",
+                   INT2FIX( AV_CODEC_ID_PCM_S16LE_PLANAR ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_DVD",
+                   INT2FIX( AV_CODEC_ID_PCM_DVD ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_F32BE",
+                   INT2FIX( AV_CODEC_ID_PCM_F32BE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_F32LE",
+                   INT2FIX( AV_CODEC_ID_PCM_F32LE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_F64BE",
+                   INT2FIX( AV_CODEC_ID_PCM_F64BE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_PCM_F64LE",
+                   INT2FIX( AV_CODEC_ID_PCM_F64LE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_QT",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_QT ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_WAV",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_WAV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_DK3",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_DK3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_DK4",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_DK4 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_WS",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_WS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_SMJPEG",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_SMJPEG ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_MS",
+                   INT2FIX( AV_CODEC_ID_ADPCM_MS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_4XM",
+                   INT2FIX( AV_CODEC_ID_ADPCM_4XM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_XA",
+                   INT2FIX( AV_CODEC_ID_ADPCM_XA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_ADX",
+                   INT2FIX( AV_CODEC_ID_ADPCM_ADX ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_EA",
+                   INT2FIX( AV_CODEC_ID_ADPCM_EA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_G726",
+                   INT2FIX( AV_CODEC_ID_ADPCM_G726 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_CT",
+                   INT2FIX( AV_CODEC_ID_ADPCM_CT ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_SWF",
+                   INT2FIX( AV_CODEC_ID_ADPCM_SWF ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_YAMAHA",
+                   INT2FIX( AV_CODEC_ID_ADPCM_YAMAHA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_SBPRO_4",
+                   INT2FIX( AV_CODEC_ID_ADPCM_SBPRO_4 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_SBPRO_3",
+                   INT2FIX( AV_CODEC_ID_ADPCM_SBPRO_3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_SBPRO_2",
+                   INT2FIX( AV_CODEC_ID_ADPCM_SBPRO_2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_THP",
+                   INT2FIX( AV_CODEC_ID_ADPCM_THP ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_AMV",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_AMV ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_EA_R1",
+                   INT2FIX( AV_CODEC_ID_ADPCM_EA_R1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_EA_R3",
+                   INT2FIX( AV_CODEC_ID_ADPCM_EA_R3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_EA_R2",
+                   INT2FIX( AV_CODEC_ID_ADPCM_EA_R2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_EA_SEAD",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_EA_SEAD ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_EA_EACS",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_EA_EACS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_EA_XAS",
+                   INT2FIX( AV_CODEC_ID_ADPCM_EA_XAS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_EA_MAXIS_XA",
+                   INT2FIX( AV_CODEC_ID_ADPCM_EA_MAXIS_XA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ADPCM_IMA_ISS",
+                   INT2FIX( AV_CODEC_ID_ADPCM_IMA_ISS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_AMR_NB",
+                   INT2FIX( AV_CODEC_ID_AMR_NB ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_AMR_WB",
+                   INT2FIX( AV_CODEC_ID_AMR_WB ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_RA_144",
+                   INT2FIX( AV_CODEC_ID_RA_144 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_RA_288",
+                   INT2FIX( AV_CODEC_ID_RA_288 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ROQ_DPCM",
+                   INT2FIX( AV_CODEC_ID_ROQ_DPCM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_INTERPLAY_DPCM",
+                   INT2FIX( AV_CODEC_ID_INTERPLAY_DPCM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_XAN_DPCM",
+                   INT2FIX( AV_CODEC_ID_XAN_DPCM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SOL_DPCM",
+                   INT2FIX( AV_CODEC_ID_SOL_DPCM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MP2",
+                   INT2FIX( AV_CODEC_ID_MP2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MP3",
+                   INT2FIX( AV_CODEC_ID_MP3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_AAC",
+                   INT2FIX( AV_CODEC_ID_AAC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_AC3",
+                   INT2FIX( AV_CODEC_ID_AC3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_DTS",
+                   INT2FIX( AV_CODEC_ID_DTS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VORBIS",
+                   INT2FIX( AV_CODEC_ID_VORBIS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_DVAUDIO",
+                   INT2FIX( AV_CODEC_ID_DVAUDIO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WMAV1",
+                   INT2FIX( AV_CODEC_ID_WMAV1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WMAV2",
+                   INT2FIX( AV_CODEC_ID_WMAV2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MACE3",
+                   INT2FIX( AV_CODEC_ID_MACE3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MACE6",
+                   INT2FIX( AV_CODEC_ID_MACE6 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VMDAUDIO",
+                   INT2FIX( AV_CODEC_ID_VMDAUDIO ) );
+#ifdef AV_CODEC_ID_SONIC
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SONIC",
+                   INT2FIX( AV_CODEC_ID_SONIC ) );
 #endif
-#ifdef CODEC_ID_SONIC_LS
-  rb_define_const( cRubyClass, "CODEC_ID_SONIC_LS",
-                   INT2FIX( CODEC_ID_SONIC_LS ) );
+#ifdef AV_CODEC_ID_SONIC_LS
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SONIC_LS",
+                   INT2FIX( AV_CODEC_ID_SONIC_LS ) );
 #endif
-  rb_define_const( cRubyClass, "CODEC_ID_FLAC",
-                   INT2FIX( CODEC_ID_FLAC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MP3ADU",
-                   INT2FIX( CODEC_ID_MP3ADU ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MP3ON4",
-                   INT2FIX( CODEC_ID_MP3ON4 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SHORTEN",
-                   INT2FIX( CODEC_ID_SHORTEN ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ALAC",
-                   INT2FIX( CODEC_ID_ALAC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WESTWOOD_SND1",
-                   INT2FIX( CODEC_ID_WESTWOOD_SND1 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_GSM",
-                   INT2FIX( CODEC_ID_GSM ) );
-  rb_define_const( cRubyClass, "CODEC_ID_QDM2",
-                   INT2FIX( CODEC_ID_QDM2 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_COOK",
-                   INT2FIX( CODEC_ID_COOK ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TRUESPEECH",
-                   INT2FIX( CODEC_ID_TRUESPEECH ) );
-  rb_define_const( cRubyClass, "CODEC_ID_TTA",
-                   INT2FIX( CODEC_ID_TTA ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SMACKAUDIO",
-                   INT2FIX( CODEC_ID_SMACKAUDIO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_QCELP",
-                   INT2FIX( CODEC_ID_QCELP ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WAVPACK",
-                   INT2FIX( CODEC_ID_WAVPACK ) );
-  rb_define_const( cRubyClass, "CODEC_ID_DSICINAUDIO",
-                   INT2FIX( CODEC_ID_DSICINAUDIO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_IMC",
-                   INT2FIX( CODEC_ID_IMC ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MUSEPACK7",
-                   INT2FIX( CODEC_ID_MUSEPACK7 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MLP",
-                   INT2FIX( CODEC_ID_MLP ) );
-  rb_define_const( cRubyClass, "CODEC_ID_GSM_MS",
-                   INT2FIX( CODEC_ID_GSM_MS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ATRAC3",
-                   INT2FIX( CODEC_ID_ATRAC3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_VOXWARE",
-                   INT2FIX( CODEC_ID_VOXWARE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_APE",
-                   INT2FIX( CODEC_ID_APE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_NELLYMOSER",
-                   INT2FIX( CODEC_ID_NELLYMOSER ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MUSEPACK8",
-                   INT2FIX( CODEC_ID_MUSEPACK8 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SPEEX",
-                   INT2FIX( CODEC_ID_SPEEX ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WMAVOICE",
-                   INT2FIX( CODEC_ID_WMAVOICE ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WMAPRO",
-                   INT2FIX( CODEC_ID_WMAPRO ) );
-  rb_define_const( cRubyClass, "CODEC_ID_WMALOSSLESS",
-                   INT2FIX( CODEC_ID_WMALOSSLESS ) );
-  rb_define_const( cRubyClass, "CODEC_ID_ATRAC3P",
-                   INT2FIX( CODEC_ID_ATRAC3P ) );
-  rb_define_const( cRubyClass, "CODEC_ID_EAC3",
-                   INT2FIX( CODEC_ID_EAC3 ) );
-  rb_define_const( cRubyClass, "CODEC_ID_SIPR",
-                   INT2FIX( CODEC_ID_SIPR ) );
-  rb_define_const( cRubyClass, "CODEC_ID_MP1",
-                   INT2FIX( CODEC_ID_MP1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_FLAC",
+                   INT2FIX( AV_CODEC_ID_FLAC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MP3ADU",
+                   INT2FIX( AV_CODEC_ID_MP3ADU ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MP3ON4",
+                   INT2FIX( AV_CODEC_ID_MP3ON4 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SHORTEN",
+                   INT2FIX( AV_CODEC_ID_SHORTEN ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ALAC",
+                   INT2FIX( AV_CODEC_ID_ALAC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WESTWOOD_SND1",
+                   INT2FIX( AV_CODEC_ID_WESTWOOD_SND1 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_GSM",
+                   INT2FIX( AV_CODEC_ID_GSM ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_QDM2",
+                   INT2FIX( AV_CODEC_ID_QDM2 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_COOK",
+                   INT2FIX( AV_CODEC_ID_COOK ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TRUESPEECH",
+                   INT2FIX( AV_CODEC_ID_TRUESPEECH ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_TTA",
+                   INT2FIX( AV_CODEC_ID_TTA ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SMACKAUDIO",
+                   INT2FIX( AV_CODEC_ID_SMACKAUDIO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_QCELP",
+                   INT2FIX( AV_CODEC_ID_QCELP ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WAVPACK",
+                   INT2FIX( AV_CODEC_ID_WAVPACK ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_DSICINAUDIO",
+                   INT2FIX( AV_CODEC_ID_DSICINAUDIO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_IMC",
+                   INT2FIX( AV_CODEC_ID_IMC ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MUSEPACK7",
+                   INT2FIX( AV_CODEC_ID_MUSEPACK7 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MLP",
+                   INT2FIX( AV_CODEC_ID_MLP ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_GSM_MS",
+                   INT2FIX( AV_CODEC_ID_GSM_MS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ATRAC3",
+                   INT2FIX( AV_CODEC_ID_ATRAC3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_VOXWARE",
+                   INT2FIX( AV_CODEC_ID_VOXWARE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_APE",
+                   INT2FIX( AV_CODEC_ID_APE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_NELLYMOSER",
+                   INT2FIX( AV_CODEC_ID_NELLYMOSER ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MUSEPACK8",
+                   INT2FIX( AV_CODEC_ID_MUSEPACK8 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SPEEX",
+                   INT2FIX( AV_CODEC_ID_SPEEX ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WMAVOICE",
+                   INT2FIX( AV_CODEC_ID_WMAVOICE ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WMAPRO",
+                   INT2FIX( AV_CODEC_ID_WMAPRO ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_WMALOSSLESS",
+                   INT2FIX( AV_CODEC_ID_WMALOSSLESS ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_ATRAC3P",
+                   INT2FIX( AV_CODEC_ID_ATRAC3P ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_EAC3",
+                   INT2FIX( AV_CODEC_ID_EAC3 ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_SIPR",
+                   INT2FIX( AV_CODEC_ID_SIPR ) );
+  rb_define_const( cRubyClass, "AV_CODEC_ID_MP1",
+                   INT2FIX( AV_CODEC_ID_MP1 ) );
   rb_define_method( cRubyClass, "close", RUBY_METHOD_FUNC( wrapClose ), 0 );
   rb_define_method( cRubyClass, "video_time_base",
                     RUBY_METHOD_FUNC( wrapVideoTimeBase ), 0 );

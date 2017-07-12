@@ -67,8 +67,8 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
       m_swsContext = sws_getContext( m_videoDec->width, m_videoDec->height,
                                      m_videoDec->pix_fmt,
                                      m_videoDec->width, m_videoDec->height,
-                                     PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0 );
-      m_vFrame = avcodec_alloc_frame();
+                                     AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0 );
+      m_vFrame = av_frame_alloc();
       ERRORMACRO(m_vFrame, Error, , "Error allocating frame");
     };
     if ( m_audioStream >= 0 )
@@ -83,7 +83,7 @@ AVInput::AVInput( const string &mrl, bool audio ) throw (Error):
         ERRORMACRO( false, Error, , "Error opening audio codec for file \""
                     << mrl << "\": " << strerror( errno ) );
       };
-      m_aFrame = avcodec_alloc_frame();
+      m_aFrame = av_frame_alloc();
       ERRORMACRO(m_aFrame, Error, , "Error allocating frame");
     };
   } catch ( Error &e ) {
@@ -249,7 +249,7 @@ AVRational AVInput::frameRate(void) throw (Error)
 {
   ERRORMACRO( m_ic != NULL, Error, , "Video \"" << m_mrl << "\" is not open. "
               "Did you call \"close\" before?" );
-  return m_ic->streams[ m_videoStream ]->r_frame_rate;
+  return m_ic->streams[ m_videoStream ]->avg_frame_rate;
 }
 
 AVRational AVInput::aspectRatio(void) throw (Error)
