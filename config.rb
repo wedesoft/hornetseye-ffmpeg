@@ -19,4 +19,4 @@ DESCRIPTION = %q{This Ruby extension defines the class Hornetseye::AVInput for r
 LICENSE = 'GPL-3+'
 AUTHOR = %q{Jan Wedekind}
 EMAIL = %q{jan@wedesoft.de}
-HOMEPAGE = %q{http://wedesoft.github.com/hornetseye-ffmpeg/}
+HOMEPAGE = %q{http://wedesoft.github.io/hornetseye-ffmpeg/}
