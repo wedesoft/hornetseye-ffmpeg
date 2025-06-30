@@ -21,7 +21,7 @@ $LIBRUBYARG = "-L#{CFG[ 'libdir' ]} #{CFG[ 'LIBRUBYARG' ]} #{CFG[ 'LDFLAGS' ]} "
 $SITELIBDIR = CFG[ 'sitelibdir' ]
 $SITEARCHDIR = CFG[ 'sitearchdir' ]
 $LDSHARED = CFG[ 'LDSHARED' ][ CFG[ 'LDSHARED' ].index( ' ' ) .. -1 ]
-$CXXFLAGS = "#{$CXXFLAGS} -I/usr/include/ffmpeg"
+$CXXFLAGS = "#{$CXXFLAGS} -I/usr/include/ffmpeg -Wno-deprecated-declarations"
 
 task :default => :all
 

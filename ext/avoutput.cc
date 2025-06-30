@@ -259,8 +259,8 @@ void AVOutput::writeVideo( FramePtr frame ) throw (Error)
     picture.linesize[2] = width2a;
     sws_scale( m_swsContext, picture.data, picture.linesize, 0,
                c->height, m_frame->data, m_frame->linesize );
-    int packetSize = avcodec_encode_video2( c, (uint8_t *)m_videoBuf,
-                                            VIDEO_BUF_SIZE, m_frame );
+    int packetSize = avcodec_encode_video( c, (uint8_t *)m_videoBuf,
+                                           VIDEO_BUF_SIZE, m_frame );
     ERRORMACRO( packetSize >= 0, Error, , "Error encoding video frame" );
     if ( packetSize > 0 ) {
       AVPacket packet;
@@ -428,8 +428,6 @@ VALUE AVOutput::registerRubyClass( VALUE rbModule )
                    INT2FIX( AV_CODEC_ID_ZLIB ) );
   rb_define_const( cRubyClass, "AV_CODEC_ID_QTRLE",
                    INT2FIX( AV_CODEC_ID_QTRLE ) );
-  rb_define_const( cRubyClass, "AV_CODEC_ID_SNOW",
-                   INT2FIX( AV_CODEC_ID_SNOW ) );
   rb_define_const( cRubyClass, "AV_CODEC_ID_TSCC",
                    INT2FIX( AV_CODEC_ID_TSCC ) );
   rb_define_const( cRubyClass, "AV_CODEC_ID_ULTI",
