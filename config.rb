@@ -1,7 +1,7 @@
 require 'rake'
 
 PKG_NAME = 'hornetseye-ffmpeg'
-PKG_VERSION = '1.2.5'
+PKG_VERSION = '1.2.6'
 CFG = RbConfig::CONFIG
 CXX = ENV[ 'CXX' ] || 'g++'
 RB_FILES = ['config.rb'] + FileList[ 'lib/**/*.rb' ]
